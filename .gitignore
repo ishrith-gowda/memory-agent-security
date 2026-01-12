@@ -1,0 +1,29 @@
+# ignore python cache, venv, data, models, outputs, and experiment logs
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+.ipynb_checkpoints/
+.DS_Store
+*.log
+*.sqlite3
+*.db
+*.pkl
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.egg-info/
+.cache/
+wandb/
+outputs/
+logs/
+data/
+models/
+notebooks/.ipynb_checkpoints/
+# ignore vscode and osx files
+.vscode/
+.idea/
+*.swp
+*.swo
