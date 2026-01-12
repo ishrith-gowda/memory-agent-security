@@ -1,4 +1,4 @@
-# Python, Jupyter, and experiment tracking dependencies
+# python, jupyter, and experiment tracking dependencies
 jupyterlab
 ipykernel
 notebook
