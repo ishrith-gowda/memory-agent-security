@@ -49,7 +49,7 @@ evaluation (weeks 17-20) → infrastructure (weeks 21-24)
 **risk level:** high  
 **dependencies:** logging
 
-- [ ] step_05: watermarking algorithms
+- [x] step_05: watermarking algorithms
 
 **validation checkpoint:** watermark embedding/detection works
 
