@@ -86,7 +86,7 @@ evaluation (weeks 17-20) → infrastructure (weeks 21-24)
 **risk level:** medium  
 **dependencies:** attacks, defenses, wrappers
 
-- [ ] step_08: evaluation framework and benchmarks
+- [x] step_08: evaluation framework and benchmarks
 
 **validation checkpoint:** full evaluation pipeline produces results
 
