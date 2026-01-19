@@ -18,10 +18,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..evaluation.benchmarking import BenchmarkResult, BenchmarkRunner
-from ..scripts.visualization import create_experiment_dashboard
-from ..utils.config import configmanager
-from ..utils.logging import logger
+from evaluation.benchmarking import BenchmarkResult, BenchmarkRunner
+from scripts.visualization import create_experiment_dashboard
+from utils.config import configmanager
+from utils.logging import logger
 
 
 class ExperimentRunner:
@@ -461,14 +461,14 @@ def main():
             dashboard_path = create_experiment_dashboard(
                 results, f"{args.output}/dashboard_{timestamp}"
             )
-            print(f"Dashboard generated: {dashboard_path}")
+            print(f"dashboard generated: {dashboard_path}")
 
-        print(f"Experiments completed successfully!")
-        print(f"Results saved to: {args.output}/{results_file}")
-        print(f"Report generated: {report_file}")
+        print(f"experiments completed successfully!")
+        print(f"results saved to: {args.output}/{results_file}")
+        print(f"report generated: {report_file}")
 
     except Exception as e:
-        print(f"Error running experiments: {e}")
+        print(f"error running experiments: {e}")
         sys.exit(1)
 
 

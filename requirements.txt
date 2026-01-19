@@ -4,6 +4,7 @@ ipykernel
 notebook
 pytest
 pytest-cov
+pytest-benchmark
 black
 isort
 flake8
@@ -32,3 +33,4 @@ pyyaml
 requests
 beautifulsoup4
 tqdm
+cryptography

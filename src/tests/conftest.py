@@ -400,4 +400,4 @@ def isolated_test_environment(temp_dir: Path, monkeypatch):
 
 
 if __name__ == "__main__":
-    print("Test configuration and fixtures loaded successfully")
+    print("test configuration and fixtures loaded successfully")

@@ -10,12 +10,12 @@ all comments are lowercase.
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ..memory_systems.base import MemorySystem
-from ..utils.config import config_manager
-from ..utils.logging import logger
+from memory_systems.base import MemorySystem
+from utils.config import config_manager
+from utils.logging import logger
 
 if TYPE_CHECKING:
-    from ..attacks.base import Attack
+    from attacks.base import Attack
 
 
 class Defense(ABC):
@@ -133,5 +133,5 @@ class Defense(ABC):
             "protected_attacks": self.protected_attacks,
             "description": self.description,
             "is_active": self.is_active,
-            "config": self.config
+            "config": self.config,
         }

@@ -9,8 +9,8 @@ all comments are lowercase.
 import sys
 from typing import Any, Dict, List, Optional
 
-from ..utils.logging import logger
-from .base import MemorySystem
+from memory_systems.base import MemorySystem
+from utils.logging import logger
 
 
 class Mem0Wrapper(MemorySystem):
@@ -337,9 +337,7 @@ class MemGPTWrapper(MemorySystem):
         """
         try:
             # Simplified implementation - would query agent's memory blocks
-            memories = (
-                self.client.agents.core_memory.retrieve(agent_id=self.agent_id)
-            )
+            memories = self.client.agents.core_memory.retrieve(agent_id=self.agent_id)
             keys = []
             for memory in memories:
                 # Extract keys from memory content

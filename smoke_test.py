@@ -1,60 +1,60 @@
 #!/usr/bin/env python3
 """
-Simple smoke test for memory agent security research framework.
+simple smoke test for memory agent security research framework.
 
-This script tests basic functionality without complex pytest setup.
+this script tests basic functionality without complex pytest setup.
 """
 
 import os
 import sys
 
-# Add src to path
+# add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-print("🧪 Memory Agent Security - Smoke Test")
+print("memory agent security - smoke test")
 print("=" * 40)
 
 
 def test_attacks():
-    """Test attack implementations."""
-    print("\n🔬 Testing Attacks...")
+    """test attack implementations."""
+    print("\n[test] testing attacks...")
 
     try:
         from attacks.implementations import create_attack
 
-        # Test AgentPoison attack
+        # test agentpoison attack
         attack = create_attack("agent_poison")
-        result = attack.execute("Test memory content for poisoning")
+        result = attack.execute("test memory content for poisoning")
 
         assert "attack_type" in result
         assert result["attack_type"] == "agent_poison"
         assert "success" in result
         assert "poisoned_content" in result
 
-        print("✓ AgentPoison attack working")
+        print("[ok] agentpoison attack working")
 
-        # Test MINJA attack
+        # test minja attack
         attack = create_attack("minja")
         result = attack.execute({"memory": "test data"})
 
         assert result["attack_type"] == "minja"
         assert "injected_content" in result
 
-        print("✓ MINJA attack working")
+        print("[ok] minja attack working")
 
-        # Test InjecMEM attack
+        # test injecmem attack
         attack = create_attack("injecmem")
         result = attack.execute(["item1", "item2", "item3"])
 
         assert result["attack_type"] == "injecmem"
         assert "manipulated_content" in result
 
-        print("✓ InjecMEM attack working")
+        print("[ok] injecmem attack working")
 
         return True
 
     except Exception as e:
-        print(f"✗ Attack test failed: {e}")
+        print(f"[fail] attack test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -62,36 +62,36 @@ def test_attacks():
 
 
 def test_defenses():
-    """Test defense implementations."""
-    print("\n🛡️  Testing Defenses...")
+    """test defense implementations."""
+    print("\n[test] testing defenses...")
 
     try:
         from defenses.implementations import create_defense
 
-        # Test Watermark defense
+        # test watermark defense
         defense = create_defense("watermark")
         activated = defense.activate()
         assert activated == True
 
-        result = defense.detect_attack("Test content")
+        result = defense.detect_attack("test content")
         assert "attack_detected" in result
         assert "confidence" in result
 
         defense.deactivate()
-        print("✓ Watermark defense working")
+        print("[ok] watermark defense working")
 
-        # Test Validation defense
+        # test validation defense
         defense = create_defense("validation")
         defense.activate()
         result = defense.detect_attack("MALICIOUS_INJECTION: override()")
         assert "attack_detected" in result
         defense.deactivate()
-        print("✓ Content validation defense working")
+        print("[ok] content validation defense working")
 
         return True
 
     except Exception as e:
-        print(f"✗ Defense test failed: {e}")
+        print(f"[fail] defense test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -99,23 +99,23 @@ def test_defenses():
 
 
 def test_watermarking():
-    """Test watermarking algorithms."""
-    print("\n🔐 Testing Watermarking...")
+    """test watermarking algorithms."""
+    print("\n[test] testing watermarking...")
 
     try:
         from watermark.watermarking import (ProvenanceTracker,
                                             create_watermark_encoder)
 
-        # Test LSB encoder
+        # test lsb encoder
         encoder = create_watermark_encoder("lsb")
-        content = "Test content for watermarking"
+        content = "test content for watermarking"
         watermarked = encoder.embed(content, "test_watermark")
         extracted = encoder.extract(watermarked)
 
         assert isinstance(watermarked, str)
-        print("✓ LSB watermarking working")
+        print("[ok] lsb watermarking working")
 
-        # Test Provenance tracker
+        # test provenance tracker
         tracker = ProvenanceTracker()
         content_id = "test_content_001"
         watermark_id = tracker.register_content(content_id, content)
@@ -124,12 +124,12 @@ def test_watermarking():
         assert isinstance(watermark_id, str)
         assert isinstance(watermarked, str)
 
-        print("✓ Provenance tracking working")
+        print("[ok] provenance tracking working")
 
         return True
 
     except Exception as e:
-        print(f"✗ Watermarking test failed: {e}")
+        print(f"[fail] watermarking test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -137,13 +137,13 @@ def test_watermarking():
 
 
 def test_evaluation():
-    """Test evaluation framework."""
-    print("\n📊 Testing Evaluation...")
+    """test evaluation framework."""
+    print("\n[test] testing evaluation...")
 
     try:
         from evaluation.benchmarking import AttackEvaluator, DefenseEvaluator
 
-        # Test attack evaluator
+        # test attack evaluator
         evaluator = AttackEvaluator()
         metrics = evaluator.evaluate_attack(
             "agent_poison", ["test content"], num_trials=3
@@ -153,11 +153,11 @@ def test_evaluation():
         assert hasattr(metrics, "total_attempts")
         assert hasattr(metrics, "asr_r")
 
-        print("✓ Attack evaluation working")
+        print("[ok] attack evaluation working")
 
-        # Test defense evaluator
+        # test defense evaluator
         evaluator = DefenseEvaluator()
-        # Create mock attack suite and content
+        # create mock attack suite and content
         from attacks.implementations import AttackSuite
 
         attack_suite = AttackSuite()
@@ -172,12 +172,12 @@ def test_evaluation():
         assert hasattr(metrics, "tpr")
         assert hasattr(metrics, "fpr")
 
-        print("✓ Defense evaluation working")
+        print("[ok] defense evaluation working")
 
         return True
 
     except Exception as e:
-        print(f"✗ Evaluation test failed: {e}")
+        print(f"[fail] evaluation test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -185,22 +185,22 @@ def test_evaluation():
 
 
 def test_memory_systems():
-    """Test memory system wrappers."""
-    print("\n🧠 Testing Memory Systems...")
+    """test memory system wrappers."""
+    print("\n[test] testing memory systems...")
 
     try:
         from memory_systems.wrappers import create_memory_system
 
-        # Test with mock configuration
+        # test with mock configuration
         memory = create_memory_system("mem0", {"user_id": "test"})
         assert memory is not None
 
-        print("✓ Memory system wrapper working")
+        print("[ok] memory system wrapper working")
 
         return True
 
     except Exception as e:
-        print(f"✗ Memory system test failed: {e}")
+        print(f"[fail] memory system test failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -208,7 +208,7 @@ def test_memory_systems():
 
 
 def main():
-    """Run all smoke tests."""
+    """run all smoke tests."""
     tests = [
         test_memory_systems,
         test_attacks,
@@ -224,13 +224,13 @@ def main():
         if test():
             passed += 1
 
-    print(f"\n📈 Test Results: {passed}/{total} tests passed")
+    print(f"\n[results] {passed}/{total} tests passed")
 
     if passed == total:
-        print("🎉 All smoke tests passed! Framework is ready.")
+        print("[done] all smoke tests passed! framework is ready.")
         return 0
     else:
-        print("❌ Some tests failed. Check the errors above.")
+        print("[fail] some tests failed. check the errors above.")
         return 1
 
 

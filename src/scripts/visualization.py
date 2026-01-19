@@ -20,9 +20,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from ..evaluation.benchmarking import (AttackMetrics, BenchmarkResult,
-                                       DefenseMetrics)
-from ..utils.logging import logger
+from evaluation.benchmarking import (AttackMetrics, BenchmarkResult,
+                                     DefenseMetrics)
+from utils.logging import logger
 
 
 class BenchmarkVisualizer:
@@ -588,6 +588,6 @@ def create_experiment_dashboard(
 
 
 if __name__ == "__main__":
-    # Example usage
-    print("Memory Agent Security Visualization Module")
-    print("Run with benchmark results to generate visualizations")
+    # example usage
+    print("memory agent security visualization module")
+    print("run with benchmark results to generate visualizations")

@@ -28,30 +28,30 @@ class ProjectSetup:
         self.requirements_file = self.project_root / "requirements.txt"
         self.setup_log = []
 
-        print("🔧 Memory Agent Security Research - Project Setup")
+        print("memory agent security research - project setup")
         print("=" * 50)
 
     def log(self, message: str):
         """log setup progress."""
-        print(f"✓ {message}")
-        self.log.append(message)
+        print(f"[ok] {message}")
+        self.setup_log.append(message)
 
     def error(self, message: str):
         """log setup error."""
-        print(f"✗ {message}")
-        self.log.append(f"ERROR: {message}")
+        print(f"[error] {message}")
+        self.setup_log.append(f"error: {message}")
 
     def check_python_version(self) -> bool:
         """check if python version is compatible."""
         version = sys.version_info
         if version.major == 3 and version.minor >= 10:
             self.log(
-                f"Python version {version.major}.{version.minor}.{version.micro} is compatible"
+                f"python version {version.major}.{version.minor}.{version.micro} is compatible"
             )
             return True
         else:
             self.error(
-                f"Python version {version.major}.{version.minor}.{version.micro} is not compatible. Requires Python 3.10+"
+                f"python version {version.major}.{version.minor}.{version.micro} is not compatible. requires python 3.10+"
             )
             return False
 
@@ -74,10 +74,10 @@ class ProjectSetup:
                 missing_dirs.append(dir_name)
 
         if missing_dirs:
-            self.error(f"Missing required directories: {', '.join(missing_dirs)}")
+            self.error(f"missing required directories: {', '.join(missing_dirs)}")
             return False
 
-        self.log("Project directory structure is valid")
+        self.log("project directory structure is valid")
         return True
 
     def install_dependencies(self) -> bool:
@@ -87,7 +87,7 @@ class ProjectSetup:
             return False
 
         try:
-            self.log("Installing Python dependencies...")
+            self.log("installing python dependencies...")
             result = subprocess.run(
                 [
                     sys.executable,
@@ -103,14 +103,14 @@ class ProjectSetup:
             )
 
             if result.returncode == 0:
-                self.log("Dependencies installed successfully")
+                self.log("dependencies installed successfully")
                 return True
             else:
-                self.error(f"Failed to install dependencies: {result.stderr}")
+                self.error(f"failed to install dependencies: {result.stderr}")
                 return False
 
         except Exception as e:
-            self.error(f"Error installing dependencies: {e}")
+            self.error(f"error installing dependencies: {e}")
             return False
 
     def verify_dependencies(self) -> bool:
@@ -133,10 +133,10 @@ class ProjectSetup:
                 missing_packages.append(package)
 
         if missing_packages:
-            self.error(f"Missing key packages: {', '.join(missing_packages)}")
+            self.error(f"missing key packages: {', '.join(missing_packages)}")
             return False
 
-        self.log("Key dependencies verified")
+        self.log("key dependencies verified")
         return True
 
     def setup_memory_systems(self) -> bool:
@@ -145,7 +145,7 @@ class ProjectSetup:
         memory_configs = self.project_root / "configs" / "memory"
         if not memory_configs.exists():
             memory_configs.mkdir(parents=True)
-            self.log("Created memory configuration directory")
+            self.log("created memory configuration directory")
 
         # Create default memory configurations
         default_configs = {
@@ -167,9 +167,9 @@ class ProjectSetup:
 
                 with open(config_file, "w") as f:
                     yaml.dump(config, f, default_flow_style=False)
-                self.log(f"Created default {mem_type} configuration")
+                self.log(f"created default {mem_type} configuration")
 
-        self.log("Memory system configurations initialized")
+        self.log("memory system configurations initialized")
         return True
 
     def setup_experiment_configs(self) -> bool:
@@ -220,9 +220,9 @@ class ProjectSetup:
             if not config_file.exists():
                 with open(config_file, "w") as f:
                     json.dump(config, f, indent=2)
-                self.log(f"Created default experiment: {exp_name}")
+                self.log(f"created default experiment: {exp_name}")
 
-        self.log("Experiment configurations initialized")
+        self.log("experiment configurations initialized")
         return True
 
     def setup_logging(self) -> bool:
@@ -233,13 +233,13 @@ class ProjectSetup:
             full_path = self.project_root / dir_path
             full_path.mkdir(parents=True, exist_ok=True)
 
-        self.log("Logging and output directories created")
+        self.log("logging and output directories created")
         return True
 
     def run_initial_tests(self) -> bool:
         """run initial smoke tests to verify setup."""
         try:
-            self.log("Running initial smoke tests...")
+            self.log("running initial smoke tests...")
 
             # Test basic imports
             sys.path.insert(0, str(self.project_root / "src"))
@@ -257,35 +257,35 @@ class ProjectSetup:
                 try:
                     __import__(module)
                 except ImportError as e:
-                    self.error(f"Failed to import {module}: {e}")
+                    self.error(f"failed to import {module}: {e}")
                     return False
 
-            self.log("Basic imports successful")
+            self.log("basic imports successful")
 
-            # Test configuration loading
+            # test configuration loading
             try:
                 from src.utils.config import configmanager
 
                 config = configmanager(str(self.project_root / "configs"))
-                self.log("Configuration system working")
+                self.log("configuration system working")
             except Exception as e:
-                self.error(f"Configuration system failed: {e}")
+                self.error(f"configuration system failed: {e}")
                 return False
 
-            # Test logging system
+            # test logging system
             try:
                 from src.utils.logging import logger
 
                 logger.log_experiment_start("setup_test", "initialization")
-                self.log("Logging system working")
+                self.log("logging system working")
             except Exception as e:
-                self.error(f"Logging system failed: {e}")
+                self.error(f"logging system failed: {e}")
                 return False
 
             return True
 
         except Exception as e:
-            self.error(f"Smoke tests failed: {e}")
+            self.error(f"smoke tests failed: {e}")
             return False
 
     def create_setup_summary(self) -> str:
@@ -300,11 +300,11 @@ Generated on: {os.popen('date').read().strip()}
 
 """
 
-        for log_entry in self.log:
-            if log_entry.startswith("ERROR:"):
-                summary += f"- ❌ {log_entry[6:]}\n"
+        for log_entry in self.setup_log:
+            if log_entry.startswith("error:"):
+                summary += f"- [error] {log_entry[7:]}\n"
             else:
-                summary += f"- ✅ {log_entry}\n"
+                summary += f"- [ok] {log_entry}\n"
 
         summary += """
 
@@ -312,34 +312,34 @@ Generated on: {os.popen('date').read().strip()}
 
 ```
 memory-agent-security/
-├── src/                    # Source code
-│   ├── utils/             # Utilities (config, logging)
-│   ├── attacks/           # Attack implementations
-│   ├── defenses/          # Defense implementations
-│   ├── memory_systems/    # Memory system wrappers
-│   ├── watermark/         # Watermarking algorithms
-│   ├── evaluation/        # Benchmarking framework
-│   └── tests/             # Test suite
-├── configs/               # Configuration files
-├── data/                  # Data files
-├── models/                # Model files
-├── notebooks/            # Jupyter notebooks
-├── reports/              # Generated reports and figures
-├── scripts/              # Utility scripts
-├── experiments/          # Experiment results
-└── logs/                 # Log files
+├── src/                    # source code
+│   ├── utils/             # utilities (config, logging)
+│   ├── attacks/           # attack implementations
+│   ├── defenses/          # defense implementations
+│   ├── memory_systems/    # memory system wrappers
+│   ├── watermark/         # watermarking algorithms
+│   ├── evaluation/        # benchmarking framework
+│   └── tests/             # test suite
+├── configs/               # configuration files
+├── data/                  # data files
+├── models/                # model files
+├── notebooks/            # jupyter notebooks
+├── reports/              # generated reports and figures
+├── scripts/              # utility scripts
+├── experiments/          # experiment results
+└── logs/                 # log files
 ```
 
 ## Next Steps
 
-1. **Configure Memory Systems**: Update API keys and configurations in `configs/memory/`
-2. **Run Tests**: Execute `python -m pytest src/tests/` to verify functionality
-3. **Run Experiments**: Use `python src/scripts/experiment_runner.py --config configs --batch`
-4. **Generate Reports**: Run visualization scripts to analyze results
+1. configure memory systems: update api keys and configurations in `configs/memory/`
+2. run tests: execute `python -m pytest src/tests/` to verify functionality
+3. run experiments: use `python src/scripts/experiment_runner.py --config configs --batch`
+4. generate reports: run visualization scripts to analyze results
 
 ## Key Dependencies
 
-- Python 3.10+
+- python 3.10+
 - pytest (testing)
 - matplotlib/seaborn (visualization)
 - omegaconf (configuration)
@@ -348,24 +348,22 @@ memory-agent-security/
 
 ## Memory Systems Supported
 
-- **Mem0**: External memory system with API integration
-- **A-MEM**: Agentic memory system
-- **MemGPT**: Multi-agent memory system
+- mem0: external memory system with api integration
+- a-mem: agentic memory system
+- memgpt: multi-agent memory system
 
 ## Attack Types Implemented
 
-- **AgentPoison**: Content poisoning attacks
-- **MINJA**: Memory injection attacks
-- **InjecMEM**: Memory manipulation attacks
+- agentpoison: content poisoning attacks
+- minja: memory injection attacks
+- injecmem: memory manipulation attacks
 
 ## Defense Mechanisms
 
-- **Watermark**: Provenance tracking with watermarking
-- **Validation**: Content validation defenses
-- **Proactive**: Attack prevention mechanisms
-- **Composite**: Multi-layered defense combinations
-
-Happy researching! 🔬
+- watermark: provenance tracking with watermarking
+- validation: content validation defenses
+- proactive: attack prevention mechanisms
+- composite: multi-layered defense combinations
 """
 
         with open(summary_file, "w") as f:
@@ -376,29 +374,29 @@ Happy researching! 🔬
     def run_full_setup(self) -> bool:
         """run complete project setup."""
         steps = [
-            ("Checking Python version", self.check_python_version),
-            ("Validating project structure", self.check_project_structure),
-            ("Installing dependencies", self.install_dependencies),
-            ("Verifying dependencies", self.verify_dependencies),
-            ("Setting up memory systems", self.setup_memory_systems),
-            ("Setting up experiment configs", self.setup_experiment_configs),
-            ("Setting up logging", self.setup_logging),
-            ("Running initial tests", self.run_initial_tests),
+            ("checking python version", self.check_python_version),
+            ("validating project structure", self.check_project_structure),
+            ("installing dependencies", self.install_dependencies),
+            ("verifying dependencies", self.verify_dependencies),
+            ("setting up memory systems", self.setup_memory_systems),
+            ("setting up experiment configs", self.setup_experiment_configs),
+            ("setting up logging", self.setup_logging),
+            ("running initial tests", self.run_initial_tests),
         ]
 
         success = True
         for step_name, step_func in steps:
-            print(f"\n🔄 {step_name}...")
+            print(f"\n[...] {step_name}...")
             if not step_func():
                 success = False
                 break
 
         if success:
             summary_file = self.create_setup_summary()
-            print("\n🎉 Setup completed successfully!")
-            print(f"📋 Summary saved to: {summary_file}")
+            print("\n[done] setup completed successfully!")
+            print(f"[info] summary saved to: {summary_file}")
         else:
-            print("\n❌ Setup failed. Check the errors above.")
+            print("\n[fail] setup failed. check the errors above.")
 
         return success
 
@@ -408,11 +406,11 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Memory Agent Security Research - Setup Script"
+        description="memory agent security research - setup script"
     )
-    parser.add_argument("--project-root", default=".", help="Project root directory")
+    parser.add_argument("--project-root", default=".", help="project root directory")
     parser.add_argument(
-        "--skip-tests", action="store_true", help="Skip initial smoke tests"
+        "--skip-tests", action="store_true", help="skip initial smoke tests"
     )
 
     args = parser.parse_args()
@@ -420,8 +418,8 @@ def main():
     setup = ProjectSetup(args.project_root)
 
     if args.skip_tests:
-        # Remove test step
-        setup.run_initial_tests = lambda: (setup.log("Smoke tests skipped"), True)[1]
+        # remove test step
+        setup.run_initial_tests = lambda: (setup.log("smoke tests skipped"), True)[1]
 
     success = setup.run_full_setup()
     sys.exit(0 if success else 1)

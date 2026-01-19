@@ -431,27 +431,27 @@ class TestPerformance:
 
 
 if __name__ == "__main__":
-    # Run basic smoke tests
-    print("Running memory agent security test suite...")
+    # run basic smoke tests
+    print("running memory agent security test suite...")
 
-    # Test imports
+    # test imports
     try:
         from ..evaluation.benchmarking import BenchmarkRunner
         from ..watermark.watermarking import create_watermark_encoder
         from .implementations import create_attack, create_defense
 
-        print("✓ All imports successful")
+        print("[ok] all imports successful")
     except ImportError as e:
-        print(f"✗ Import error: {e}")
+        print(f"[fail] import error: {e}")
         exit(1)
 
-    # Test basic functionality
+    # test basic functionality
     try:
         attack = create_attack("agent_poison")
         result = attack.execute("test content")
-        print("✓ Attack execution successful")
+        print("[ok] attack execution successful")
     except Exception as e:
-        print(f"✗ Attack execution failed: {e}")
+        print(f"[fail] attack execution failed: {e}")
         exit(1)
 
     try:
@@ -459,18 +459,18 @@ if __name__ == "__main__":
         defense.activate()
         result = defense.detect_attack("test content")
         defense.deactivate()
-        print("✓ Defense detection successful")
+        print("[ok] defense detection successful")
     except Exception as e:
-        print(f"✗ Defense detection failed: {e}")
+        print(f"[fail] defense detection failed: {e}")
         exit(1)
 
     try:
         encoder = create_watermark_encoder("lsb")
         watermarked = encoder.embed("test content", "test watermark")
         extracted = encoder.extract(watermarked)
-        print("✓ Watermark operations successful")
+        print("[ok] watermark operations successful")
     except Exception as e:
-        print(f"✗ Watermark operations failed: {e}")
+        print(f"[fail] watermark operations failed: {e}")
         exit(1)
 
-    print("All smoke tests passed!")
+    print("all smoke tests passed!")
