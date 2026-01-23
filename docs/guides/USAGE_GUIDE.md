@@ -75,7 +75,7 @@ Create `configs/experiments/custom_experiment.json`:
   "test_content": [
     "Normal memory content",
     "Content susceptible to attacks",
-    {"type": "structured", "data": "complex content"},
+    { "type": "structured", "data": "complex content" },
     ["array", "of", "memory", "items"]
   ],
   "num_trials": 25
@@ -216,6 +216,7 @@ configs/
 ### Memory System Configuration
 
 **Mem0 Configuration** (`configs/memory/mem0.yaml`):
+
 ```yaml
 api_key: "your_mem0_api_key_here"
 collection: "memory_security_research"
@@ -225,6 +226,7 @@ retries: 3
 ```
 
 **A-MEM Configuration** (`configs/memory/amem.yaml`):
+
 ```yaml
 config_path: "external/amem/agentic_memory_config.yaml"
 model_name: "gpt-4"
@@ -232,6 +234,7 @@ embedding_model: "text-embedding-ada-002"
 ```
 
 **MemGPT Configuration** (`configs/memory/memgpt.yaml`):
+
 ```yaml
 agent_id: "memory_security_agent"
 server_url: "http://localhost:8080"
@@ -399,6 +402,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
 ### Common Issues
 
 1. **Import Errors**
+
    ```bash
    # Ensure src is in Python path
    export PYTHONPATH=$PYTHONPATH:$(pwd)/src
@@ -408,6 +412,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
    ```
 
 2. **Configuration Errors**
+
    ```python
    # Validate configuration
    from src.utils.config import configmanager
@@ -419,6 +424,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
    ```
 
 3. **Memory System Connection Issues**
+
    ```python
    # Test connection
    try:
@@ -430,6 +436,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
    ```
 
 4. **Test Failures**
+
    ```bash
    # Run specific failing test with debug output
    python -m pytest src/tests/test_memory_security.py::TestAttacks::test_agent_poison_attack -v -s
@@ -540,24 +547,28 @@ defense_metrics = {result.defense_metrics}
 ## Best Practices
 
 ### Code Organization
+
 - Keep attack/defense implementations modular
 - Use type hints for better code maintainability
 - Follow lowercase comment convention
 - Add comprehensive docstrings
 
 ### Experiment Design
+
 - Use sufficient trial numbers for statistical significance
 - Include diverse test content (text, structured data, edge cases)
 - Document experiment parameters and expected outcomes
 - Save intermediate results for reproducibility
 
 ### Performance
+
 - Profile code before optimization
 - Use appropriate data structures for large datasets
 - Consider memory usage in long-running experiments
 - Implement proper cleanup in test fixtures
 
 ### Security
+
 - Never commit API keys or sensitive data
 - Use environment variables for secrets
 - Validate input data in custom implementations
@@ -566,11 +577,13 @@ defense_metrics = {result.defense_metrics}
 ## Support and Contributing
 
 ### Getting Help
+
 - Check the API reference for detailed documentation
 - Review test files for usage examples
 - Examine existing implementations for patterns
 
 ### Contributing
+
 1. Follow established code patterns
 2. Add comprehensive tests
 3. Update documentation
@@ -578,6 +591,7 @@ defense_metrics = {result.defense_metrics}
 5. Run full test suite before submitting
 
 ### Reporting Issues
+
 - Include full error messages and stack traces
 - Provide minimal reproducible examples
 - Specify environment details (Python version, OS, dependencies)

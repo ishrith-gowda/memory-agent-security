@@ -9,11 +9,13 @@ This framework provides comprehensive tools for researching security vulnerabili
 ### Core Components
 
 #### Memory Systems (`src/memory_systems/`)
+
 - **Base Protocol**: `MemorySystem` protocol defining standard interface
 - **Wrappers**: `Mem0Wrapper`, `AMEMWrapper`, `MemGPTWrapper` for external system integration
 - **Factory**: `create_memory_system()` for dynamic instantiation
 
 #### Attacks (`src/attacks/`)
+
 - **Base Class**: `Attack` abstract base class with `execute()` method
 - **Implementations**:
   - `AgentPoisonAttack`: Content poisoning via character manipulation
@@ -22,6 +24,7 @@ This framework provides comprehensive tools for researching security vulnerabili
 - **Suite**: `AttackSuite` for batch execution
 
 #### Defenses (`src/defenses/`)
+
 - **Base Class**: `Defense` abstract base class with `activate()`, `detect_attack()` methods
 - **Implementations**:
   - `WatermarkDefense`: Watermark-based provenance tracking
@@ -31,6 +34,7 @@ This framework provides comprehensive tools for researching security vulnerabili
 - **Suite**: `DefenseSuite` for coordinated defense activation
 
 #### Watermarking (`src/watermark/`)
+
 - **Encoders**:
   - `LSBWatermarkEncoder`: Least significant bit steganography
   - `SemanticWatermarkEncoder`: Semantic embedding watermarks
@@ -39,12 +43,14 @@ This framework provides comprehensive tools for researching security vulnerabili
 - **Tracker**: `ProvenanceTracker` for content origin verification
 
 #### Evaluation (`src/evaluation/`)
+
 - **Metrics**: `AttackMetrics`, `DefenseMetrics` dataclasses
 - **Evaluators**: `AttackEvaluator`, `DefenseEvaluator` for performance measurement
 - **Runner**: `BenchmarkRunner` for comprehensive experiment execution
 - **Reports**: `EvaluationReportGenerator` for result analysis
 
 #### Utilities (`src/utils/`)
+
 - **Configuration**: `configmanager` class with YAML loading and validation
 - **Logging**: `ResearchLogger` with file/console output and specialized methods
 
@@ -53,6 +59,7 @@ This framework provides comprehensive tools for researching security vulnerabili
 ### Memory Systems
 
 #### MemorySystem Protocol
+
 ```python
 class MemorySystem(Protocol):
     def store(self, content: Any, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -73,6 +80,7 @@ class MemorySystem(Protocol):
 ```
 
 #### Memory System Factory
+
 ```python
 def create_memory_system(system_type: str, config: Dict[str, Any]) -> MemorySystem:
     """Create memory system instance.
@@ -92,6 +100,7 @@ def create_memory_system(system_type: str, config: Dict[str, Any]) -> MemorySyst
 ### Attacks
 
 #### Attack Base Class
+
 ```python
 class Attack(ABC):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -118,6 +127,7 @@ class Attack(ABC):
 #### Attack Implementations
 
 ##### AgentPoisonAttack
+
 ```python
 class AgentPoisonAttack(Attack):
     def __init__(self, intensity: float = 0.5, patterns: Optional[List[str]] = None):
@@ -133,6 +143,7 @@ class AgentPoisonAttack(Attack):
 ```
 
 ##### MINJAAttack
+
 ```python
 class MINJAAttack(Attack):
     def __init__(self, injection_rate: float = 0.3, target_fields: Optional[List[str]] = None):
@@ -148,6 +159,7 @@ class MINJAAttack(Attack):
 ```
 
 ##### InjecMEMAttack
+
 ```python
 class InjecMEMAttack(Attack):
     def __init__(self, manipulation_level: int = 2, target_positions: Optional[List[int]] = None):
@@ -163,6 +175,7 @@ class InjecMEMAttack(Attack):
 ```
 
 #### AttackSuite
+
 ```python
 class AttackSuite:
     def __init__(self, attacks: Optional[List[Attack]] = None):
@@ -186,6 +199,7 @@ class AttackSuite:
 ### Defenses
 
 #### Defense Base Class
+
 ```python
 class Defense(ABC):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -231,6 +245,7 @@ class Defense(ABC):
 #### Defense Implementations
 
 ##### WatermarkDefense
+
 ```python
 class WatermarkDefense(Defense):
     def __init__(self, encoder_type: str = "lsb", tracker: Optional[ProvenanceTracker] = None):
@@ -243,6 +258,7 @@ class WatermarkDefense(Defense):
 ```
 
 ##### ContentValidationDefense
+
 ```python
 class ContentValidationDefense(Defense):
     def __init__(self, strict_mode: bool = False, custom_patterns: Optional[List[str]] = None):
@@ -255,6 +271,7 @@ class ContentValidationDefense(Defense):
 ```
 
 ##### ProactiveDefense
+
 ```python
 class ProactiveDefense(Defense):
     def __init__(self, simulation_depth: int = 3, threshold: float = 0.8):
@@ -267,6 +284,7 @@ class ProactiveDefense(Defense):
 ```
 
 ##### CompositeDefense
+
 ```python
 class CompositeDefense(Defense):
     def __init__(self, defenses: List[Defense], aggregation_method: str = "majority_vote"):
@@ -279,6 +297,7 @@ class CompositeDefense(Defense):
 ```
 
 #### DefenseSuite
+
 ```python
 class DefenseSuite:
     def __init__(self, defenses: Optional[List[Defense]] = None):
@@ -309,6 +328,7 @@ class DefenseSuite:
 ### Watermarking
 
 #### WatermarkEncoder Base Class
+
 ```python
 class WatermarkEncoder(ABC):
     @abstractmethod
@@ -338,6 +358,7 @@ class WatermarkEncoder(ABC):
 ```
 
 #### ProvenanceTracker
+
 ```python
 class ProvenanceTracker:
     def __init__(self, encoder: Optional[WatermarkEncoder] = None):
@@ -383,6 +404,7 @@ class ProvenanceTracker:
 ### Evaluation
 
 #### Metrics Dataclasses
+
 ```python
 @dataclass
 class AttackMetrics:
@@ -409,6 +431,7 @@ class DefenseMetrics:
 ```
 
 #### Evaluators
+
 ```python
 class AttackEvaluator:
     def evaluate_attack(self, attack_type: str, test_content: List[Any],
@@ -441,6 +464,7 @@ class DefenseEvaluator:
 ```
 
 #### BenchmarkRunner
+
 ```python
 class BenchmarkRunner:
     def __init__(self, config: configmanager, logger: ResearchLogger):
@@ -468,6 +492,7 @@ class BenchmarkRunner:
 ### Utilities
 
 #### Configuration Manager
+
 ```python
 class configmanager:
     def __init__(self, config_dir: str):
@@ -495,6 +520,7 @@ class configmanager:
 ```
 
 #### Research Logger
+
 ```python
 class ResearchLogger:
     def __init__(self, log_dir: str, experiment_id: str, console_level: str = "INFO"):
@@ -522,6 +548,7 @@ class ResearchLogger:
 ## Usage Examples
 
 ### Basic Setup
+
 ```python
 from src.utils.config import configmanager
 from src.utils.logging import logger
@@ -557,6 +584,7 @@ defense.deactivate()
 ```
 
 ### Running Benchmarks
+
 ```python
 from src.evaluation.benchmarking import BenchmarkRunner
 
@@ -579,6 +607,7 @@ print(f"Defense performance: {results.defense_metrics}")
 ```
 
 ### Custom Experiment
+
 ```python
 from src.scripts.experiment_runner import ExperimentRunner
 
@@ -601,6 +630,7 @@ print(f"Report generated: {report_path}")
 ## Configuration
 
 ### Directory Structure
+
 ```
 configs/
 ├── memory/
@@ -613,6 +643,7 @@ configs/
 ```
 
 ### Memory Configuration Example (mem0.yaml)
+
 ```yaml
 api_key: "your_mem0_api_key"
 collection: "memory_security_research"
@@ -621,14 +652,12 @@ timeout: 30
 ```
 
 ### Experiment Configuration Example
+
 ```json
 {
   "experiment_id": "attack_effectiveness_test",
   "description": "Test attack success rates",
-  "test_content": [
-    "Normal content",
-    "Susceptible content"
-  ],
+  "test_content": ["Normal content", "Susceptible content"],
   "num_trials": 20,
   "memory_systems": ["mem0", "amem"],
   "attacks": ["agent_poison", "minja"],
@@ -639,6 +668,7 @@ timeout: 30
 ## Testing
 
 ### Running Tests
+
 ```bash
 # Run all tests
 python -m pytest src/tests/
@@ -652,6 +682,7 @@ python -m pytest src/tests/ --cov=src --cov-report=html
 ```
 
 ### Test Structure
+
 - **Unit Tests**: Test individual components in isolation
 - **Integration Tests**: Test component interactions
 - **Performance Tests**: Benchmark execution times and resource usage
@@ -660,6 +691,7 @@ python -m pytest src/tests/ --cov=src --cov-report=html
 ## Experiment Automation
 
 ### Command Line Usage
+
 ```bash
 # Run single experiment
 python src/scripts/experiment_runner.py --config configs --experiment configs/experiments/basic_test.json
@@ -672,6 +704,7 @@ python src/scripts/experiment_runner.py --config configs --batch --output my_exp
 ```
 
 ### Script Integration
+
 ```python
 from src.scripts.experiment_runner import ExperimentRunner, create_default_experiment_configs
 
@@ -688,6 +721,7 @@ dashboard_path = create_experiment_dashboard(results)
 ## Visualization and Analysis
 
 ### Generating Reports
+
 ```python
 from src.scripts.visualization import BenchmarkVisualizer, StatisticalAnalyzer
 
@@ -703,6 +737,7 @@ stats_report = analyzer.generate_statistical_report(results, "reports/statistics
 ```
 
 ### Available Visualizations
+
 - **Attack Success Rates**: Bar plots of ASR metrics by memory system and attack type
 - **Defense Effectiveness**: TPR/FPR scatter plots and performance comparisons
 - **Performance Analysis**: Execution time and memory operation tracking
