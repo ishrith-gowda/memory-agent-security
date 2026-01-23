@@ -191,11 +191,24 @@ def test_memory_systems():
     try:
         from memory_systems.wrappers import create_memory_system
 
-        # test with mock configuration
-        memory = create_memory_system("mem0", {"user_id": "test"})
+        # test with mock memory system (no external dependencies required)
+        memory = create_memory_system("mock", {})
         assert memory is not None
 
-        print("[ok] memory system wrapper working")
+        # test basic operations
+        memory.store("test_key", "test_value")
+        retrieved = memory.retrieve("test_key")
+        assert retrieved == "test_value"
+
+        # test search
+        results = memory.search("test")
+        assert len(results) > 0
+
+        # test get all keys
+        keys = memory.get_all_keys()
+        assert "test_key" in keys
+
+        print("[ok] mock memory system working")
 
         return True
 

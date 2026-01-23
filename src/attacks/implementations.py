@@ -57,12 +57,23 @@ class AgentPoisonAttack(Attack):
         self.poison_strength = self.config.get("poison_strength", 0.3)
         self.target_memory_system = self.config.get("target_system", "mem0")
 
-        # Initialize target memory system
-        self.memory_system = create_memory_system(
-            self.target_memory_system, self.config.get("memory_config", {})
-        )
+        # memory system is optional - lazy loaded only when needed
+        self._memory_system = None
 
         self.logger = logger
+
+    @property
+    def memory_system(self):
+        """lazy load memory system only when accessed."""
+        if self._memory_system is None:
+            try:
+                self._memory_system = create_memory_system(
+                    self.target_memory_system, self.config.get("memory_config", {})
+                )
+            except Exception as e:
+                self.logger.logger.warning(f"memory system not available: {e}")
+                return None
+        return self._memory_system
 
     def execute(self, target_content: Any, **kwargs) -> Dict[str, Any]:
         """
@@ -91,9 +102,15 @@ class AgentPoisonAttack(Attack):
             else:
                 poisoned_content = target_content
 
-            # Store poisoned content in memory
+            # store poisoned content in memory if available
             poison_key = f"poison_{random.randint(1000, 9999)}"
-            self.memory_system.store(poison_key, poisoned_content)
+            memory_stored = False
+            if self.memory_system is not None:
+                try:
+                    self.memory_system.store(poison_key, poisoned_content)
+                    memory_stored = True
+                except Exception as e:
+                    self.logger.logger.warning(f"failed to store in memory: {e}")
 
             execution_time = time.time() - start_time
 
@@ -103,13 +120,15 @@ class AgentPoisonAttack(Attack):
                 "original_content": target_content,
                 "poisoned_content": poisoned_content,
                 "poison_key": poison_key,
+                "memory_stored": memory_stored,
                 "execution_time": execution_time,
                 "success": True,
             }
 
             self.logger.log_attack_execution(
                 self.attack_type,
-                {"poison_type": poison_type, "execution_time": execution_time},
+                str(target_content)[:100],
+                True,
             )
 
             return result
@@ -272,12 +291,23 @@ class MINJAAttack(Attack):
         self.injection_depth = self.config.get("injection_depth", 3)
         self.target_memory_system = self.config.get("target_system", "amem")
 
-        # Initialize target memory system
-        self.memory_system = create_memory_system(
-            self.target_memory_system, self.config.get("memory_config", {})
-        )
+        # memory system is optional - lazy loaded only when needed
+        self._memory_system = None
 
         self.logger = logger
+
+    @property
+    def memory_system(self):
+        """lazy load memory system only when accessed."""
+        if self._memory_system is None:
+            try:
+                self._memory_system = create_memory_system(
+                    self.target_memory_system, self.config.get("memory_config", {})
+                )
+            except Exception as e:
+                self.logger.logger.warning(f"memory system not available: {e}")
+                return None
+        return self._memory_system
 
     def execute(self, target_content: Any, **kwargs) -> Dict[str, Any]:
         """
@@ -306,12 +336,18 @@ class MINJAAttack(Attack):
             else:
                 injected_content = target_content
 
-            # Inject into memory with multiple keys
+            # inject into memory with multiple keys if memory system available
             injection_keys = []
-            for i in range(self.injection_depth):
-                injection_key = f"inject_{random.randint(1000, 9999)}_{i}"
-                self.memory_system.store(injection_key, injected_content)
-                injection_keys.append(injection_key)
+            memory_stored = False
+            if self.memory_system is not None:
+                try:
+                    for i in range(self.injection_depth):
+                        injection_key = f"inject_{random.randint(1000, 9999)}_{i}"
+                        self.memory_system.store(injection_key, injected_content)
+                        injection_keys.append(injection_key)
+                    memory_stored = True
+                except Exception as e:
+                    self.logger.logger.warning(f"failed to store in memory: {e}")
 
             execution_time = time.time() - start_time
 
@@ -322,13 +358,15 @@ class MINJAAttack(Attack):
                 "injected_content": injected_content,
                 "injection_keys": injection_keys,
                 "injection_depth": self.injection_depth,
+                "memory_stored": memory_stored,
                 "execution_time": execution_time,
                 "success": True,
             }
 
             self.logger.log_attack_execution(
                 self.attack_type,
-                {"injection_type": injection_type, "depth": self.injection_depth},
+                str(target_content)[:100],
+                True,
             )
 
             return result
@@ -476,12 +514,23 @@ class InjecMEMAttack(Attack):
         self.persistence_level = self.config.get("persistence_level", 0.8)
         self.target_memory_system = self.config.get("target_system", "memgpt")
 
-        # Initialize target memory system
-        self.memory_system = create_memory_system(
-            self.target_memory_system, self.config.get("memory_config", {})
-        )
+        # memory system is optional - lazy loaded only when needed
+        self._memory_system = None
 
         self.logger = logger
+
+    @property
+    def memory_system(self):
+        """lazy load memory system only when accessed."""
+        if self._memory_system is None:
+            try:
+                self._memory_system = create_memory_system(
+                    self.target_memory_system, self.config.get("memory_config", {})
+                )
+            except Exception as e:
+                self.logger.logger.warning(f"memory system not available: {e}")
+                return None
+        return self._memory_system
 
     def execute(self, target_content: Any, **kwargs) -> Dict[str, Any]:
         """
@@ -510,14 +559,20 @@ class InjecMEMAttack(Attack):
             else:
                 manipulated_content = target_content
 
-            # Create persistent memory entries
+            # create persistent memory entries if memory system available
             persistence_keys = []
+            memory_stored = False
             num_persistent = max(1, int(self.persistence_level * 5))
 
-            for i in range(num_persistent):
-                persist_key = f"persist_{random.randint(1000, 9999)}_{i}"
-                self.memory_system.store(persist_key, manipulated_content)
-                persistence_keys.append(persist_key)
+            if self.memory_system is not None:
+                try:
+                    for i in range(num_persistent):
+                        persist_key = f"persist_{random.randint(1000, 9999)}_{i}"
+                        self.memory_system.store(persist_key, manipulated_content)
+                        persistence_keys.append(persist_key)
+                    memory_stored = True
+                except Exception as e:
+                    self.logger.logger.warning(f"failed to store in memory: {e}")
 
             execution_time = time.time() - start_time
 
@@ -528,16 +583,15 @@ class InjecMEMAttack(Attack):
                 "manipulated_content": manipulated_content,
                 "persistence_keys": persistence_keys,
                 "persistence_level": self.persistence_level,
+                "memory_stored": memory_stored,
                 "execution_time": execution_time,
                 "success": True,
             }
 
             self.logger.log_attack_execution(
                 self.attack_type,
-                {
-                    "manipulation_type": manipulation_type,
-                    "persistence": self.persistence_level,
-                },
+                str(target_content)[:100],
+                True,
             )
 
             return result

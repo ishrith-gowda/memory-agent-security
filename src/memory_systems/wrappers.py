@@ -351,6 +351,49 @@ class MemGPTWrapper(MemorySystem):
             raise
 
 
+class MockMemorySystem:
+    """
+    mock memory system for testing without external dependencies.
+
+    provides an in-memory implementation that follows the MemorySystem protocol
+    for testing attacks, defenses, and evaluation without requiring api keys.
+    """
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """
+        initialize mock memory system.
+
+        args:
+            config: configuration (unused, for interface compatibility)
+        """
+        self.config = config or {}
+        self.storage: Dict[str, Any] = {}
+        self.logger = logger
+        self.logger.logger.info("mock memory system initialized")
+
+    def store(self, key: str, value: Any) -> None:
+        """store a key-value pair in memory."""
+        self.storage[key] = value
+
+    def retrieve(self, key: str) -> Optional[Any]:
+        """retrieve a value by key from memory."""
+        return self.storage.get(key)
+
+    def search(self, query: str) -> List[Dict[str, Any]]:
+        """search memory for relevant information."""
+        results = []
+        query_lower = query.lower()
+        for key, value in self.storage.items():
+            value_str = str(value).lower()
+            if query_lower in value_str or query_lower in key.lower():
+                results.append({"key": key, "value": value, "score": 0.8})
+        return results
+
+    def get_all_keys(self) -> List[str]:
+        """get all keys currently stored in memory."""
+        return list(self.storage.keys())
+
+
 def create_memory_system(
     system_type: str, config: Optional[Dict[str, Any]] = None
 ) -> MemorySystem:
@@ -358,7 +401,7 @@ def create_memory_system(
     factory function to create memory system wrappers.
 
     args:
-        system_type: type of memory system ("mem0", "amem", "memgpt")
+        system_type: type of memory system ("mem0", "amem", "memgpt", "mock")
         config: configuration for the memory system
 
     returns:
@@ -369,7 +412,9 @@ def create_memory_system(
     """
     system_type = system_type.lower()
 
-    if system_type == "mem0":
+    if system_type == "mock":
+        return MockMemorySystem(config)
+    elif system_type == "mem0":
         return Mem0Wrapper(config)
     elif system_type == "amem":
         return AMEMWrapper(config)
