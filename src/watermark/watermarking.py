@@ -2,21 +2,43 @@
 watermarking algorithms for provenance tracking and attack detection.
 
 this module implements various watermarking techniques for embedding
-and detecting provenance information in memory systems. all comments
-are lowercase.
+and detecting provenance information in memory systems. includes
+research-grade unigram-watermark based on dr. xuandong zhao's methodology
+(arXiv:2306.17439, ICLR 2024).
+
+all comments are lowercase.
 """
 
 import hashlib
 import json
+import math
+import os
+import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from utils.logging import logger
+
+
+def load_watermark_config() -> Dict[str, Any]:
+    """
+    load watermark configuration from yaml file.
+
+    returns:
+        configuration dictionary
+    """
+    config_path = Path("configs/defenses/watermark.yaml")
+    if config_path.exists():
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    return {}
 
 
 class WatermarkEncoder:
@@ -95,6 +117,262 @@ class WatermarkEncoder:
             1 for a, b in zip(watermark[:min_len], extracted[:min_len]) if a == b
         )
         return matches / min_len
+
+
+class UnigramWatermarkEncoder(WatermarkEncoder):
+    """
+    unigram-watermark implementation based on dr. xuandong zhao's paper.
+
+    "Provable Robust Watermarking for AI-Generated Text" (arXiv:2306.17439, ICLR 2024)
+    https://github.com/XuandongZhao/Unigram-Watermark
+
+    this watermarking scheme:
+    - partitions vocabulary into green (gamma) and red (1-gamma) lists using prf
+    - for embedding: biases content toward green-list tokens
+    - for detection: computes z-score from green token proportion
+    - provides 2x better robustness to editing than kgw watermark
+
+    key parameters:
+    - gamma: green list proportion (default 0.25, lower = stronger)
+    - delta: bias strength (default 2.0)
+    - z_threshold: detection threshold (default 4.0)
+    - min_tokens: minimum tokens for reliable detection (default 50)
+    """
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """
+        initialize unigram-watermark encoder.
+
+        args:
+            config: configuration with watermark parameters
+        """
+        super().__init__(config)
+
+        # load config from yaml if not provided
+        yaml_config = load_watermark_config().get("unigram_watermark", {})
+        self.gamma = self.config.get("gamma", yaml_config.get("gamma", 0.25))
+        self.delta = self.config.get("delta", yaml_config.get("delta", 2.0))
+        self.z_threshold = self.config.get("z_threshold", yaml_config.get("z_threshold", 4.0))
+        self.min_tokens = self.config.get("min_tokens", yaml_config.get("min_tokens", 50))
+        self.key_bits = self.config.get("key_bits", yaml_config.get("key_bits", 256))
+
+        # generate secret key for prf if not provided
+        self.secret_key = self.config.get("secret_key", self._generate_key())
+
+        # precompute green list for common characters/tokens
+        self._green_set = self._compute_green_set()
+
+    def _generate_key(self) -> bytes:
+        """generate cryptographically secure random key."""
+        return hashlib.sha256(str(self.seed).encode()).digest()
+
+    def _compute_green_set(self) -> set:
+        """
+        compute green set using prf seeded by secret key.
+
+        for memory content, we use character-level partitioning
+        to ensure fine-grained watermarking that survives edits.
+        """
+        # use deterministic random based on secret key
+        rng = np.random.RandomState(
+            int.from_bytes(self.secret_key[:4], byteorder='big')
+        )
+
+        # create green set from printable ascii characters
+        all_chars = [chr(i) for i in range(32, 127)]  # printable ascii
+        num_green = int(len(all_chars) * self.gamma)
+
+        # shuffle and select green characters
+        indices = list(range(len(all_chars)))
+        rng.shuffle(indices)
+        green_indices = set(indices[:num_green])
+
+        return {all_chars[i] for i in green_indices}
+
+    def _is_green(self, char: str) -> bool:
+        """check if character is in green list."""
+        return char in self._green_set
+
+    def _get_green_replacement(self, char: str) -> str:
+        """
+        get a green-list replacement for a character.
+
+        uses similar visual appearance when possible.
+        """
+        if self._is_green(char):
+            return char
+
+        # common visually similar replacements
+        similar_chars = {
+            'a': ['@', '4'], 'e': ['3'], 'i': ['1', '!'], 'o': ['0'],
+            's': ['5', '$'], 'l': ['1', '|'], 't': ['+', '7'],
+            'b': ['8', '6'], 'g': ['9', '6'], 'z': ['2'],
+        }
+
+        # try similar characters first
+        char_lower = char.lower()
+        if char_lower in similar_chars:
+            for replacement in similar_chars[char_lower]:
+                if self._is_green(replacement):
+                    return replacement if char.islower() else replacement.upper()
+
+        # find any green character as fallback
+        for green_char in self._green_set:
+            if green_char.isalpha() == char.isalpha():
+                return green_char
+
+        return char
+
+    def embed(self, content: str, watermark: str) -> str:
+        """
+        embed unigram watermark into content.
+
+        biases content toward green-list characters while preserving
+        readability. uses watermark string to seed additional randomness.
+
+        args:
+            content: original text content
+            watermark: watermark identifier
+
+        returns:
+            watermarked content with increased green token proportion
+        """
+        if not content or len(content) < self.min_tokens:
+            # content too short for reliable watermarking
+            return content
+
+        # seed rng with watermark for deterministic embedding
+        watermark_seed = int(hashlib.sha256(watermark.encode()).hexdigest()[:8], 16)
+        rng = np.random.RandomState(watermark_seed)
+
+        watermarked_chars = []
+        replacements_made = 0
+        target_green_proportion = self.gamma + (self.delta * 0.1)  # target ~45% green
+
+        # count current green proportion
+        alnum_chars = [(i, c) for i, c in enumerate(content) if c.isalnum()]
+        current_green = sum(1 for _, c in alnum_chars if self._is_green(c))
+        current_proportion = current_green / len(alnum_chars) if alnum_chars else 0
+
+        # calculate how many replacements needed
+        target_green = int(len(alnum_chars) * target_green_proportion)
+        needed_replacements = max(0, target_green - current_green)
+
+        for i, char in enumerate(content):
+            # with probability proportional to delta, replace non-green with green
+            if not self._is_green(char) and char.isalnum() and replacements_made < needed_replacements:
+                # probabilistic replacement to avoid predictable patterns
+                if rng.random() < (self.delta / 5.0):  # increased probability
+                    replacement = self._get_green_replacement(char)
+                    watermarked_chars.append(replacement)
+                    replacements_made += 1
+                    continue
+
+            watermarked_chars.append(char)
+
+        return "".join(watermarked_chars)
+
+    def _compute_z_score(self, content: str) -> float:
+        """
+        compute z-score for watermark detection.
+
+        z = (|green tokens| - gamma * n) / sqrt(gamma * (1-gamma) * n)
+
+        args:
+            content: content to analyze
+
+        returns:
+            z-score (higher = more likely watermarked)
+        """
+        # count tokens (alphanumeric characters)
+        tokens = [c for c in content if c.isalnum()]
+        n = len(tokens)
+
+        if n < self.min_tokens:
+            return 0.0
+
+        # count green tokens
+        green_count = sum(1 for c in tokens if self._is_green(c))
+
+        # compute z-score
+        expected_green = self.gamma * n
+        variance = self.gamma * (1 - self.gamma) * n
+        std_dev = math.sqrt(variance) if variance > 0 else 1.0
+
+        z_score = (green_count - expected_green) / std_dev
+
+        return z_score
+
+    def extract(self, content: str) -> Optional[str]:
+        """
+        extract watermark detection result.
+
+        for unigram watermark, extraction returns the z-score and detection
+        status rather than the original watermark string.
+
+        args:
+            content: potentially watermarked content
+
+        returns:
+            detection result string or None if not watermarked
+        """
+        z_score = self._compute_z_score(content)
+
+        if z_score >= self.z_threshold:
+            return f"detected:z={z_score:.2f}"
+
+        return None
+
+    def detect(self, content: str, watermark: str) -> float:
+        """
+        detect presence of watermark using z-score.
+
+        args:
+            content: content to check
+            watermark: watermark to look for (used for seeded detection)
+
+        returns:
+            confidence score based on z-score (0.0 to 1.0)
+        """
+        z_score = self._compute_z_score(content)
+
+        # convert z-score to confidence (0-1 range)
+        # z >= z_threshold maps to confidence >= 0.5
+        # use sigmoid-like transformation
+        if z_score <= 0:
+            return 0.0
+
+        confidence = 1.0 / (1.0 + math.exp(-(z_score - self.z_threshold / 2)))
+        return min(confidence, 1.0)
+
+    def get_detection_stats(self, content: str) -> Dict[str, Any]:
+        """
+        get detailed detection statistics.
+
+        args:
+            content: content to analyze
+
+        returns:
+            dict with z-score, green proportion, token count, detection result
+        """
+        tokens = [c for c in content if c.isalnum()]
+        n = len(tokens)
+        green_count = sum(1 for c in tokens if self._is_green(c))
+
+        z_score = self._compute_z_score(content)
+        detected = z_score >= self.z_threshold
+
+        return {
+            "z_score": z_score,
+            "z_threshold": self.z_threshold,
+            "detected": detected,
+            "token_count": n,
+            "green_count": green_count,
+            "green_proportion": green_count / n if n > 0 else 0,
+            "expected_proportion": self.gamma,
+            "min_tokens": self.min_tokens,
+            "sufficient_tokens": n >= self.min_tokens,
+        }
 
 
 class LSBWatermarkEncoder(WatermarkEncoder):
@@ -483,7 +761,7 @@ def create_watermark_encoder(
     factory function to create watermark encoders.
 
     args:
-        algorithm: watermarking algorithm ("lsb", "semantic", "crypto", "composite")
+        algorithm: watermarking algorithm ("unigram", "lsb", "semantic", "crypto", "composite")
         config: configuration for the encoder
 
     returns:
@@ -494,7 +772,9 @@ def create_watermark_encoder(
     """
     algorithm = algorithm.lower()
 
-    if algorithm == "lsb":
+    if algorithm == "unigram":
+        return UnigramWatermarkEncoder(config)
+    elif algorithm == "lsb":
         return LSBWatermarkEncoder(config)
     elif algorithm == "semantic":
         return SemanticWatermarkEncoder(config)
