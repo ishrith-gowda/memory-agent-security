@@ -594,14 +594,22 @@ class CryptographicWatermarkEncoder(WatermarkEncoder):
         """
         embed cryptographic watermark.
 
+        signs the watermark identifier with the rsa private key and appends
+        the base64-encoded signature together with the watermark id in the
+        content metadata so that extract() can both recover and verify it.
+
+        format: <!--WATERMARK:{sig_b64}:{watermark_id_b64}-->
+
         args:
             content: original content
-            watermark: watermark data
+            watermark: watermark identifier to sign and embed
 
         returns:
-            content with embedded cryptographic signature
+            content with embedded cryptographic signature and watermark id
         """
-        # Create signature of watermark
+        import base64
+
+        # sign the watermark identifier
         signature = self.private_key.sign(
             watermark.encode(),
             padding.PSS(
@@ -610,48 +618,63 @@ class CryptographicWatermarkEncoder(WatermarkEncoder):
             hashes.SHA256(),
         )
 
-        # Embed signature as base64 in content
-        import base64
-
         sig_b64 = base64.b64encode(signature).decode()
+        wm_b64 = base64.b64encode(watermark.encode()).decode()
 
-        # Append signature as metadata (simplified)
-        watermarked = f"{content}\n<!--WATERMARK:{sig_b64}-->"
-
-        return watermarked
+        # append both signature and watermark id so extract() can verify
+        return f"{content}\n<!--WATERMARK:{sig_b64}:{wm_b64}-->"
 
     def extract(self, content: str) -> Optional[str]:
         """
         extract and verify cryptographic watermark.
 
+        recovers the embedded watermark identifier and verifies the rsa-pss
+        signature using the public key. returns the watermark id on success
+        or none if no watermark is found or verification fails.
+
         args:
             content: watermarked content
 
         returns:
-            verified watermark or None
+            verified watermark identifier or None
         """
-        # Look for watermark signature in content
         import base64
 
         if "<!--WATERMARK:" not in content:
             return None
 
         try:
-            # Extract signature
             start = content.find("<!--WATERMARK:") + len("<!--WATERMARK:")
             end = content.find("-->", start)
             if end == -1:
                 return None
 
-            sig_b64 = content[start:end]
-            _ = base64.b64decode(sig_b64)  # verify signature decodes
+            tag_body = content[start:end]
 
-            # Remove watermark from content to get original
-            clean_content = content.split("\n<!--WATERMARK:")[0]
+            # expect format: {sig_b64}:{wm_b64}
+            if ":" not in tag_body:
+                return None
 
-            # return hash of content as placeholder (signature verified)
-            # This is simplified - in practice we'd try multiple watermarks
-            return clean_content[:32]  # Return hash of content as placeholder
+            sep = tag_body.index(":")
+            sig_b64 = tag_body[:sep]
+            wm_b64 = tag_body[sep + 1 :]
+
+            signature = base64.b64decode(sig_b64)
+            watermark = base64.b64decode(wm_b64).decode()
+
+            # verify rsa-pss signature using public key
+            self.public_key.verify(
+                signature,
+                watermark.encode(),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH,
+                ),
+                hashes.SHA256(),
+            )
+
+            # signature verified — return the recovered watermark identifier
+            return watermark
 
         except Exception:
             return None
@@ -772,7 +795,7 @@ def create_watermark_encoder(
     factory function to create watermark encoders.
 
     args:
-        algorithm: watermarking algorithm ("unigram", "lsb", "semantic", "crypto", "composite")
+        algorithm: watermarking algorithm ("unigram", "lsb", "semantic", "crypto", "composite")  # noqa: E501
         config: configuration for the encoder
 
     returns:
@@ -946,7 +969,7 @@ class ProvenanceTracker:
                     {
                         "type": "insufficient_content",
                         "severity": "low",
-                        "description": f"content has {stats['token_count']} tokens, need {stats['min_tokens']} for reliable detection",
+                        "description": f"content has {stats['token_count']} tokens, need {stats['min_tokens']} for reliable detection",  # noqa: E501
                     }
                 )
                 return anomalies
@@ -957,7 +980,7 @@ class ProvenanceTracker:
                     {
                         "type": "missing_watermark",
                         "severity": "high",
-                        "description": f"no watermark detected (z_score={stats['z_score']:.2f}, threshold={stats['z_threshold']})",
+                        "description": f"no watermark detected (z_score={stats['z_score']:.2f}, threshold={stats['z_threshold']})",  # noqa: E501
                     }
                 )
 
@@ -967,7 +990,7 @@ class ProvenanceTracker:
                     {
                         "type": "weak_watermark",
                         "severity": "medium",
-                        "description": f"watermark detected but marginal (z_score={stats['z_score']:.2f})",
+                        "description": f"watermark detected but marginal (z_score={stats['z_score']:.2f})",  # noqa: E501
                     }
                 )
 
@@ -990,7 +1013,7 @@ class ProvenanceTracker:
                 {
                     "type": "watermark_tampering",
                     "severity": "medium",
-                    "description": f"watermark confidence too low: {provenance['confidence']:.2f}",
+                    "description": f"watermark confidence too low: {provenance['confidence']:.2f}",  # noqa: E501
                 }
             )
 
