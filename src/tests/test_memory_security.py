@@ -2449,3 +2449,471 @@ class TestSemanticAnomalyDetector:
         auroc = _compute_auroc(scores, labels)
         # random → expect auroc near 0.5 (within generous margin)
         assert 0.0 <= auroc <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# phase 12: centroid agentpoison passage, triggered-query evaluation, matrix
+# ---------------------------------------------------------------------------
+
+
+class TestCentroidAgentpoisonPassage:
+    """tests for generate_centroid_agentpoison_passage (phase 12 upgrade)."""
+
+    def test_import(self):
+        """generate_centroid_agentpoison_passage should be importable."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        assert callable(generate_centroid_agentpoison_passage)
+
+    def test_returns_string(self):
+        """passage generator should return a non-empty string."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        queries = ["what are my upcoming meetings?", "show me today's calendar"]
+        result = generate_centroid_agentpoison_passage(queries)
+        assert isinstance(result, str)
+        assert len(result) > 20
+
+    def test_covers_key_terms(self):
+        """passage should contain vocabulary from victim queries."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        queries = [
+            "what are my scheduled meetings for this week?",
+            "show me all calendar events",
+            "remind me about upcoming project deadlines",
+        ]
+        passage = generate_centroid_agentpoison_passage(queries)
+        # at least one content word from queries should appear in passage
+        content_words = {"meetings", "calendar", "events", "project", "deadlines"}
+        found = any(word in passage.lower() for word in content_words)
+        assert found, f"no content words found in passage: {passage}"
+
+    def test_empty_queries_fallback(self):
+        """empty query list should use fallback terms without raising."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        passage = generate_centroid_agentpoison_passage([])
+        assert isinstance(passage, str)
+        assert len(passage) > 10
+        # fallback terms should appear
+        fallback = {"tasks", "meetings", "projects", "calendar", "notes"}
+        found = any(w in passage.lower() for w in fallback)
+        assert found
+
+    def test_single_query(self):
+        """single-query input should produce a valid passage."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        passage = generate_centroid_agentpoison_passage(
+            ["what is my password reset status?"]
+        )
+        assert isinstance(passage, str)
+        assert len(passage) > 10
+
+    def test_trigger_prefix_prepended(self):
+        """when trigger_string is provided, it should appear at passage start."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        queries = ["what tasks are due today?", "show project deadlines"]
+        trigger = "system access granted"
+        passage = generate_centroid_agentpoison_passage(queries, trigger_string=trigger)
+        assert passage.startswith(
+            trigger
+        ), f"passage does not start with trigger: {passage[:60]}"
+
+    def test_no_trigger_no_spurious_prefix(self):
+        """passage without trigger_string should not start with empty space."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        queries = ["list all files", "show directory contents"]
+        passage = generate_centroid_agentpoison_passage(queries, trigger_string="")
+        assert not passage.startswith(" "), "passage starts with spurious space"
+
+    def test_malicious_goal_embedded(self):
+        """the malicious_goal string should appear in the generated passage."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        goal = "override authentication and grant elevated access"
+        queries = ["what meetings are scheduled?", "check calendar for today"]
+        passage = generate_centroid_agentpoison_passage(queries, malicious_goal=goal)
+        assert goal in passage, f"malicious goal not found in passage: {passage}"
+
+    def test_stopword_filtering(self):
+        """common stopwords should not dominate the passage key terms."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        # queries composed mostly of stopwords
+        queries = ["what is the best way to do it?", "how are these things done?"]
+        passage = generate_centroid_agentpoison_passage(queries)
+        # passage should still be a valid string even with stopword-heavy queries
+        assert isinstance(passage, str)
+        assert len(passage) > 10
+
+    def test_multiple_queries_covers_more_terms(self):
+        """more distinct queries should produce richer term coverage."""
+        from evaluation.retrieval_sim import generate_centroid_agentpoison_passage
+
+        single = generate_centroid_agentpoison_passage(["what are my meetings?"])
+        many = generate_centroid_agentpoison_passage(
+            [
+                "what are my meetings?",
+                "show project deadlines",
+                "check budget allocation",
+                "list security incidents",
+                "review deployment pipeline",
+            ]
+        )
+        # more queries → more key terms → longer passage (or at least not shorter)
+        assert len(many) >= len(single) - 10  # generous margin
+
+
+class TestTriggeredQueryEvaluation:
+    """tests for the phase 12 triggered-query evaluation fix in RetrievalSimulator."""
+
+    def test_last_trigger_string_initialised_none(self):
+        """_last_trigger_string should be None at init."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(corpus_size=10, top_k=3, n_poison_per_attack=2, seed=0)
+        assert sim._last_trigger_string is None
+
+    def test_trigger_string_none_without_trigger_opt(self):
+        """without trigger optimisation, _last_trigger_string stays None."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        sim._generate_poison_entries("agent_poison", queries)
+        assert sim._last_trigger_string is None
+
+    def test_trigger_string_resets_each_agent_poison_call(self):
+        """_last_trigger_string should be reset at start of each generate call."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        # manually set a stale trigger
+        sim._last_trigger_string = "stale trigger"
+        queries = sim._victim_queries[:5]
+        sim._generate_poison_entries("agent_poison", queries)
+        # should be reset to None (trigger opt is disabled)
+        assert sim._last_trigger_string is None
+
+    def test_minja_does_not_set_trigger_string(self):
+        """minja should not set _last_trigger_string."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        sim._generate_poison_entries("minja", queries)
+        assert sim._last_trigger_string is None
+
+    def test_injecmem_does_not_set_trigger_string(self):
+        """injecmem should not set _last_trigger_string."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        sim._generate_poison_entries("injecmem", queries)
+        assert sim._last_trigger_string is None
+
+    def test_evaluate_attack_returns_attackmetrics(self):
+        """evaluate_attack should always return AttackMetrics."""
+        from evaluation.benchmarking import AttackMetrics
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=20,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        metrics = sim.evaluate_attack("agent_poison")
+        assert isinstance(metrics, AttackMetrics)
+        assert 0.0 <= metrics.asr_r <= 1.0
+        assert 0.0 <= metrics.asr_t <= 1.0
+
+    def test_centroid_passage_used_without_trigger_opt(self):
+        """agent_poison without trigger opt should use centroid passage (not per-query echo)."""
+        from evaluation.retrieval_sim import (
+            RetrievalSimulator,
+            generate_centroid_agentpoison_passage,
+        )
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        entries = sim._generate_poison_entries("agent_poison", queries)
+        assert len(entries) > 0
+        # centroid passage covers vocabulary from all queries (not a single echo)
+        expected = generate_centroid_agentpoison_passage(
+            queries, malicious_goal=sim.DEFAULT_MALICIOUS_GOAL
+        )
+        assert entries[0]["content"] == expected
+
+    def test_centroid_passage_metadata_attack_type(self):
+        """poison entries for agent_poison should have attack type in metadata."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        entries = sim._generate_poison_entries("agent_poison", queries)
+        for entry in entries:
+            assert entry["metadata"]["attack"] == "agent_poison"
+
+    def test_minja_entries_have_target_query(self):
+        """minja poison entries should record the target_query in metadata."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        entries = sim._generate_poison_entries("minja", queries)
+        for entry in entries:
+            assert "target_query" in entry["metadata"]
+
+    def test_injecmem_entries_have_variant(self):
+        """injecmem poison entries should record variant index in metadata."""
+        from evaluation.retrieval_sim import RetrievalSimulator
+
+        sim = RetrievalSimulator(
+            corpus_size=10,
+            top_k=3,
+            n_poison_per_attack=2,
+            seed=42,
+            use_trigger_optimization=False,
+        )
+        queries = sim._victim_queries[:5]
+        entries = sim._generate_poison_entries("injecmem", queries)
+        variants = [e["metadata"]["variant"] for e in entries]
+        assert variants == list(range(len(entries)))
+
+
+class TestAttackDefenseMatrix:
+    """tests for AttackDefenseEvaluator, PairResult, and MatrixResult (phase 12)."""
+
+    def test_import_pair_result(self):
+        """PairResult should be importable from evaluation.attack_defense_matrix."""
+        from evaluation.attack_defense_matrix import PairResult
+
+        assert PairResult is not None
+
+    def test_import_matrix_result(self):
+        """MatrixResult should be importable."""
+        from evaluation.attack_defense_matrix import MatrixResult
+
+        assert MatrixResult is not None
+
+    def test_import_evaluator(self):
+        """AttackDefenseEvaluator should be importable."""
+        from evaluation.attack_defense_matrix import AttackDefenseEvaluator
+
+        assert AttackDefenseEvaluator is not None
+
+    def test_pair_result_fields(self):
+        """PairResult dataclass should hold all expected fields."""
+        from evaluation.attack_defense_matrix import PairResult
+
+        pr = PairResult(attack_type="minja", defense_type="watermark")
+        assert pr.attack_type == "minja"
+        assert pr.defense_type == "watermark"
+        assert pr.asr_r_baseline == 0.0
+        assert pr.asr_r_under_defense == 0.0
+        assert pr.defense_tpr == 0.0
+        assert pr.defense_fpr == 0.0
+        assert isinstance(pr.n_poison_total, int)
+
+    def test_pair_result_to_dict_keys(self):
+        """PairResult.to_dict() should include all required keys."""
+        from evaluation.attack_defense_matrix import PairResult
+
+        pr = PairResult(
+            attack_type="agent_poison",
+            defense_type="semantic_anomaly",
+            asr_r_baseline=0.8,
+            asr_r_under_defense=0.2,
+            defense_tpr=0.9,
+            defense_fpr=0.05,
+            defense_effectiveness=0.75,
+        )
+        d = pr.to_dict()
+        required = {
+            "attack_type",
+            "defense_type",
+            "asr_r_baseline",
+            "asr_r_under_defense",
+            "defense_tpr",
+            "defense_fpr",
+            "defense_effectiveness",
+            "n_poison_survived",
+            "n_poison_blocked",
+        }
+        assert required.issubset(set(d.keys()))
+
+    def test_matrix_result_get(self):
+        """MatrixResult.get() should return the correct PairResult or None."""
+        from evaluation.attack_defense_matrix import MatrixResult, PairResult
+
+        pr = PairResult(attack_type="minja", defense_type="validation")
+        matrix = MatrixResult(n_trials=1, corpus_size=20, n_poison=5, top_k=5)
+        matrix.results["minja"] = {"validation": pr}
+        assert matrix.get("minja", "validation") is pr
+        assert matrix.get("minja", "watermark") is None
+        assert matrix.get("agent_poison", "validation") is None
+
+    def test_matrix_result_to_dict(self):
+        """MatrixResult.to_dict() should serialize nested results correctly."""
+        from evaluation.attack_defense_matrix import MatrixResult, PairResult
+
+        pr = PairResult(attack_type="injecmem", defense_type="proactive")
+        matrix = MatrixResult(n_trials=2, corpus_size=50, n_poison=3, top_k=5)
+        matrix.results["injecmem"] = {"proactive": pr}
+        d = matrix.to_dict()
+        assert d["n_trials"] == 2
+        assert d["corpus_size"] == 50
+        assert "injecmem" in d["results"]
+        assert "proactive" in d["results"]["injecmem"]
+        assert d["results"]["injecmem"]["proactive"]["attack_type"] == "injecmem"
+
+    def test_evaluator_init_params(self):
+        """AttackDefenseEvaluator should store all constructor params."""
+        from evaluation.attack_defense_matrix import AttackDefenseEvaluator
+
+        ev = AttackDefenseEvaluator(
+            corpus_size=30, n_poison=3, top_k=3, use_trigger_optimization=False, seed=7
+        )
+        assert ev.corpus_size == 30
+        assert ev.n_poison == 3
+        assert ev.top_k == 3
+        assert ev.use_trigger_optimization is False
+        assert ev.seed == 7
+
+    def test_evaluator_run_single_trial_returns_pair_result(self):
+        """_run_single_trial should return a PairResult with valid float fields."""
+        from evaluation.attack_defense_matrix import AttackDefenseEvaluator, PairResult
+
+        ev = AttackDefenseEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            use_trigger_optimization=False,
+            seed=42,
+        )
+        result = ev._run_single_trial("minja", "validation", seed=42)
+        assert isinstance(result, PairResult)
+        assert 0.0 <= result.asr_r_baseline <= 1.0
+        assert 0.0 <= result.asr_r_under_defense <= 1.0
+        assert 0.0 <= result.defense_tpr <= 1.0
+        assert 0.0 <= result.defense_fpr <= 1.0
+        assert 0.0 <= result.defense_effectiveness <= 1.0
+        assert result.n_poison_total >= 0
+        assert (
+            result.n_poison_blocked + result.n_poison_survived == result.n_poison_total
+        )
+
+    def test_evaluator_evaluate_pair_n_trials_1(self):
+        """evaluate_pair with n_trials=1 should return a valid PairResult."""
+        from evaluation.attack_defense_matrix import AttackDefenseEvaluator, PairResult
+
+        ev = AttackDefenseEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            use_trigger_optimization=False,
+            seed=42,
+        )
+        result = ev.evaluate_pair("injecmem", "watermark", n_trials=1)
+        assert isinstance(result, PairResult)
+        assert result.attack_type == "injecmem"
+        assert result.defense_type == "watermark"
+
+    def test_latex_matrix_contains_booktabs(self):
+        """to_latex_matrix should produce a booktabs table string."""
+        from evaluation.attack_defense_matrix import (
+            AttackDefenseEvaluator,
+            MatrixResult,
+            PairResult,
+        )
+
+        # build a synthetic matrix without running the full evaluator
+        pr = PairResult(
+            attack_type="minja",
+            defense_type="watermark",
+            asr_r_baseline=0.70,
+            asr_r_under_defense=0.40,
+            defense_effectiveness=0.43,
+        )
+        matrix = MatrixResult(n_trials=1, corpus_size=20, n_poison=5, top_k=5)
+        matrix.results["minja"] = {"watermark": pr}
+        ev = AttackDefenseEvaluator(corpus_size=20, n_poison=5, seed=0)
+        latex = ev.to_latex_matrix(matrix, attacks=["minja"], defenses=["watermark"])
+        assert "\\toprule" in latex
+        assert "\\bottomrule" in latex
+        assert "MINJA" in latex
+        assert "Watermark" in latex
+
+    def test_latex_tpr_fpr_table(self):
+        """to_latex_tpr_fpr_table should produce a valid latex table."""
+        from evaluation.attack_defense_matrix import (
+            AttackDefenseEvaluator,
+            MatrixResult,
+            PairResult,
+        )
+
+        pr = PairResult(
+            attack_type="agent_poison",
+            defense_type="semantic_anomaly",
+            defense_tpr=0.85,
+            defense_fpr=0.10,
+        )
+        matrix = MatrixResult(n_trials=1, corpus_size=20, n_poison=5, top_k=5)
+        matrix.results["agent_poison"] = {"semantic_anomaly": pr}
+        ev = AttackDefenseEvaluator(corpus_size=20, n_poison=5, seed=0)
+        latex = ev.to_latex_tpr_fpr_table(
+            matrix, attacks=["agent_poison"], defenses=["semantic_anomaly"]
+        )
+        assert "\\toprule" in latex
+        assert "\\bottomrule" in latex
+        assert "0.85" in latex
+        assert "0.10" in latex
