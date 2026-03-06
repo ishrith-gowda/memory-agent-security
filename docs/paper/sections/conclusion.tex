@@ -1,0 +1,20 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented a unified framework for evaluating memory poisoning attacks
+and defenses on LLM agent systems.  Our framework corrects a systematic
+evaluation error in prior \agentpoison{} simulations (triggered-query
+evaluation), implements a centroid-targeting adversarial passage that
+achieves $\asrr=1.00$, and proposes \sad{}---a novel query-similarity-based
+defense that requires no labeled adversarial examples.
+
+The full $3 \times 5$ attack-defense interaction matrix reveals important
+complementarity in the defense landscape: no single defense is uniformly
+effective, and the combination of watermark-based provenance verification
+with similarity-based anomaly detection provides the strongest empirical
+defense.
+
+As LLM agents become more capable and memory systems become more central
+to their operation, the security of external memory is a critical unsolved
+problem.  We hope this framework provides a rigorous foundation for future
+research in this area.

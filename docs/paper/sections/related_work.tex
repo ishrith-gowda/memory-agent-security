@@ -1,0 +1,44 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Memory poisoning attacks.}
+\citet{chen2024agentpoison} introduce \agentpoison{}, the first attack to
+exploit the retrieval mechanism of LLM agent memory systems.  They formulate
+trigger optimization as a constrained gradient problem over the embedding
+space of a dense retriever (DPR~\citep{karpukhin2020dense}) and demonstrate
+attacks on three production agent frameworks.  \citet{dong2025minja} extend
+the threat model to a \emph{query-only} setting: the attacker has no direct
+memory access and relies on the agent's auto-storage of adversarial reasoning
+chains.  Their progressive-shortening indication protocol achieves ISR of
+98.2\% across three experimental platforms.  \citet{injecmem2026} propose a
+retriever-agnostic anchor strategy that achieves broad recall via
+topic-covering passages designed to match many query types.
+
+\paragraph{Backdoor attacks on neural retrieval.}
+Retrieval-augmented generation (RAG) systems have been shown to be vulnerable
+to corpus poisoning \citep{zou2024poisonedrag}, where adversarial documents
+are injected into the retrieval corpus.  Our work differs in that the
+adversarial entries are \emph{agent-generated memories} rather than
+external documents, and the threat model spans multiple sessions.
+
+\paragraph{Watermark-based content provenance.}
+\citet{zhao2024watermark} propose a provably robust token-level watermark
+for LLM-generated text based on a green/red vocabulary partition.  We adapt
+this scheme to character-level memory entries (Section~\ref{sec:defenses}).
+Related work on watermark evasion \citep{kirchenbauer2023watermark} motivates
+our evaluation of paraphrasing and copy-paste dilution attacks.
+
+\paragraph{Backdoor defense strategies.}
+Neural Cleanse \citep{wang2019neuralcleanse} and STRIP \citep{gao2019strip}
+are representative backdoor detection methods that inspired our
+attack-defense matrix evaluation protocol.  Unlike these methods, which
+operate on model weights, our defenses target memory content directly.
+The ASB benchmark \citep{zhang2024asb} provides a unified evaluation
+framework for backdoor attacks and defenses in classification settings;
+we adapt its matrix format to the memory-agent threat model.
+
+\paragraph{LLM agent security.}
+Prompt injection attacks \citep{perez2022ignore} target LLM agents through
+crafted user inputs.  Memory poisoning is orthogonal: the adversarial content
+is stored silently and triggers on future queries without further adversarial
+interaction.

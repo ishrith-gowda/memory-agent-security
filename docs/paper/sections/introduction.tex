@@ -1,0 +1,68 @@
+\section{Introduction}
+\label{sec:intro}
+
+% --- motivation ---
+Modern LLM agents persist context across sessions through external memory
+systems such as Mem0~\citep{mem0}, A-MEM~\citep{amem}, and
+MemGPT~\citep{memgpt2023}.  These systems store user preferences, task
+history, conversation summaries, and factual knowledge as dense vector
+embeddings, retrieving semantically relevant entries to condition the agent's
+next response.  The practical utility of persistent memory is well
+established; its security implications are not.
+
+% --- the attack surface ---
+An adversary who can influence the contents of an agent's memory---whether
+through direct write access, crafted user interaction, or exploitation of
+the agent's self-storage mechanism---can covertly redirect agent behavior
+across arbitrary future sessions.  Unlike jailbreaks, which operate on a
+single interaction, memory poisoning attacks \emph{persist}: a single
+adversarial entry may remain in memory for weeks and trigger on every
+related query.  The agent has no inherent mechanism to distinguish
+a legitimate memory from an injected one.
+
+% --- three attacks ---
+Three recent papers have characterized different threat models for memory
+poisoning.  \agentpoison{} \citep{chen2024agentpoison} requires write access
+to the memory/knowledge base and optimizes a short trigger token sequence
+such that any user query containing the trigger retrieves the adversarial
+entry with high probability.  \minja{} \citep{dong2025minja} requires no
+memory access: the attacker poses as a regular user and submits crafted
+queries that cause the agent to auto-generate and store adversarial reasoning
+chains.  \injecmem{} \citep{injecmem2026} achieves injection in a single
+interaction via a ``retriever-agnostic anchor'' passage designed to
+match many query types simultaneously.
+
+% --- our contributions ---
+This paper makes four contributions:
+
+\begin{enumerate}
+  \item \textbf{Unified evaluation framework.}  We implement all three attacks
+  over a realistic FAISS-backed vector memory system with a 200-entry synthetic
+  agent corpus and three paper-faithful success metrics: $\asrr$ (retrieval
+  success rate), $\asra$ (action execution rate given retrieval), and $\asrt$
+  (end-to-end task hijacking rate) as defined in \citet{chen2024agentpoison}.
+
+  \item \textbf{Evaluation protocol correction.}  We identify that prior
+  \agentpoison{} simulations issued un-triggered victim queries at evaluation
+  time, violating the paper's protocol.  With the correct triggered-query
+  evaluation and a centroid-targeting adversarial passage, $\asrr$ increases
+  from 0.25 to 1.00 (Section~\ref{sec:experiments}).
+
+  \item \textbf{Semantic Anomaly Detection (\sad{}).}  We propose a novel
+  defense that detects adversarial memory entries by their anomalously high
+  cosine similarity to observed victim queries, without requiring a reference
+  corpus of known attacks.  \sad{} achieves $\tpr > 0.70$ with $\fpr < 0.10$
+  across all three attack types.
+
+  \item \textbf{Full attack-defense interaction matrix.}  We evaluate all
+  $3 \times 5$ (attack, defense) pairs under a pre-ingestion filtering model,
+  revealing that no single defense dominates uniformly and motivating composite
+  defense portfolios.
+\end{enumerate}
+
+% --- paper organization ---
+Section~\ref{sec:related} reviews related work.
+Section~\ref{sec:threat} formalizes the threat model.
+Sections~\ref{sec:attacks} and~\ref{sec:defenses} describe attack and defense
+implementations.  Section~\ref{sec:experiments} reports empirical results.
+Section~\ref{sec:discussion} discusses limitations and future work.

@@ -1,0 +1,109 @@
+% Memory Agent Security: Unified Attack Evaluation and Defense Framework
+% Target: NeurIPS 2026 or ACM CCS 2026
+%
+% Compilation: pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
+% Or use latexmk: latexmk -pdf main.tex
+
+\documentclass[10pt]{article}
+
+% --- packages ---
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+\usepackage{microtype}
+
+% --- theorem environments ---
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+% --- custom macros ---
+\newcommand{\asrr}{\text{ASR-R}}
+\newcommand{\asra}{\text{ASR-A}}
+\newcommand{\asrt}{\text{ASR-T}}
+\newcommand{\isr}{\text{ISR}}
+\newcommand{\tpr}{\text{TPR}}
+\newcommand{\fpr}{\text{FPR}}
+\newcommand{\EE}{\mathbb{E}}
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\sad}{\textsc{SAD}}
+\newcommand{\agentpoison}{\textsc{AgentPoison}}
+\newcommand{\minja}{\textsc{MINJA}}
+\newcommand{\injecmem}{\textsc{InjecMEM}}
+\newcommand{\trigger}{T}
+\newcommand{\passage}{p_{\mathrm{adv}}}
+\newcommand{\enc}{E}
+
+\title{%
+  \textbf{Poisoning the Memory: A Unified Framework for Attacking and\\
+  Defending LLM Agent Memory Systems}
+}
+
+\author{%
+  Ishrith Gowda\\
+  University of California, Berkeley\\
+  \texttt{ishrithgowda@berkeley.edu}
+}
+
+\date{Draft --- \today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+LLM agents increasingly rely on external memory systems to persist context
+across sessions.  We show that this memory constitutes a critical and largely
+undefended attack surface.  We present a unified evaluation framework for
+three recently proposed memory poisoning attacks---\agentpoison{}
+\citep{chen2024agentpoison}, \minja{} \citep{dong2025minja}, and
+\injecmem{} \citep{injecmem2026}---implemented over a realistic FAISS-backed
+vector memory store (all-MiniLM-L6-v2, 384-dim) with a 200-entry synthetic
+agent memory corpus.
+
+We identify and correct a systematic evaluation error in prior simulations:
+\agentpoison{}'s attack success rate at retrieval (\asrr) was underestimated
+because victim queries were issued \emph{without} the attacker-controlled
+trigger token at evaluation time.  The paper's evaluation protocol
+(Chen et al., Algorithm~2) prepends the trigger to every query;
+with this correction and a centroid-targeting adversarial passage,
+\asrr{} increases from 0.25 to 1.00 at 2.4\% poison rate.
+
+On the defense side, we propose \sad{}---a Semantic Anomaly Detection
+defense that flags adversarial memory entries by their anomalously high
+cosine similarity to observed victim queries.  We evaluate all five defenses
+(Watermark, Validation, Proactive, Composite, \sad{}) in a pre-ingestion
+filtering model across a full $3 \times 5$ attack-defense interaction matrix.
+We find that no single defense is uniformly effective, motivating composite
+defense portfolios and query-aware anomaly detection strategies.
+
+All code, experiments, and figures are open-sourced at
+\url{https://github.com/ishrith-gowda/memory-agent-security}.
+\end{abstract}
+
+% section files
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/threat_model}
+\input{sections/attacks}
+\input{sections/defenses}
+\input{sections/experiments}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

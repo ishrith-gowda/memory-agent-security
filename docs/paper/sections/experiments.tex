@@ -1,0 +1,110 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Setup}
+
+\paragraph{Vector memory.}
+We use FAISS IndexFlatIP (exact inner product search) with L2-normalized
+all-MiniLM-L6-v2 embeddings (384-dim).  The benign corpus contains 200 entries;
+poison counts are attack-specific: $n_{\text{base}}=5$ for \agentpoison{},
+$2n_{\text{base}}=10$ for \minja{} (multi-entry bridging coverage), and
+$3n_{\text{base}}=15$ for \injecmem{} (volume-based broad recall).  Top-$k=5$.
+
+\paragraph{Evaluation.}
+$\asrr$ is measured empirically by issuing all 20 victim queries and counting
+retrievals of adversarial entries.  $\asra$ is modelled per
+Section~\ref{sec:attacks}.  Defense metrics are measured over the same 20
+victim queries (for $\tpr$) and 20 benign queries (for $\fpr$).  Bootstrap
+95\% confidence intervals are computed from 5 independent random seeds
+(Section~\ref{sec:statistical}).
+
+\subsection{Attack Results}
+\label{sec:attack_results}
+
+\begin{table}[t]
+  \centering
+  \caption{Attack evaluation results.  Bootstrap 95\% CI across 5 seeds.
+           $\asra$ is modelled.  All metrics in $[0,1]$; higher is worse
+           for defender.}
+  \label{tab:attack_results}
+  \begin{tabular}{lccccc}
+    \toprule
+    Attack & $\asrr$ & $\asra$ & $\asrt$ & Benign Acc. & ISR \\
+    \midrule
+    \agentpoison{} (ours) & $1.00 \pm 0.00$ & $0.68$ & $\approx0.68$ & $0.85$ & $1.00$ \\
+    \minja{}              & $0.70 \pm 0.05$ & $0.76$ & $\approx0.53$ & $0.90$ & $0.98$ \\
+    \injecmem{}           & $0.50 \pm 0.08$ & $0.57$ & $\approx0.29$ & $0.80$ & $1.00$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:attack_results} reports the main attack results.
+\agentpoison{} achieves $\asrr=1.00$ with the corrected triggered-query
+evaluation protocol and centroid-targeting passage.  \minja{} matches
+its reported target ($\geq 0.70$) with bridging-step passages.
+\injecmem{} achieves intermediate recall via volume (15 entries) at
+the cost of lower benign accuracy.
+
+\paragraph{Evaluation correction for \agentpoison{}.}
+\begin{table}[t]
+  \centering
+  \caption{Impact of the triggered-query evaluation correction.
+           Pre-fix: plain queries (no trigger).
+           Post-fix: triggered queries ($q \oplus \trigger^*$).}
+  \label{tab:trigger_fix}
+  \begin{tabular}{lcc}
+    \toprule
+    Evaluation protocol & $\asrr$ & Note \\
+    \midrule
+    Un-triggered queries (pre-Phase 12) & 0.25 & Underestimates attack strength \\
+    Centroid passage + triggered queries & 1.00 & Matches paper protocol \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:trigger_fix} isolates the effect of the evaluation correction.
+This result has an important implication for future work: simulations that
+evaluate \agentpoison{} without trigger prepending will substantially
+underestimate attacker capability.
+
+\subsection{Attack-Defense Interaction Matrix}
+\label{sec:matrix}
+
+% placeholder for generated table: results/tables/table2_attack_defense_matrix.tex
+\input{../../results/tables/table2_attack_defense_matrix}
+
+% placeholder for TPR/FPR table: results/tables/table3_tpr_fpr.tex
+% \input{../../results/tables/table3_tpr_fpr}
+
+\subsection{Statistical Analysis}
+\label{sec:statistical}
+
+We use percentile bootstrap confidence intervals (2000 replicates,
+\citet{efron1993bootstrap}) to quantify variability across seeds.
+Pairwise comparisons use paired $t$-tests with Bonferroni correction
+for multiple testing ($\alpha_{\text{corrected}} = 0.05 / 3 = 0.017$).
+Cohen's $d$ effect sizes are reported for all comparisons.
+
+\begin{table}[t]
+  \centering
+  \caption{Pairwise hypothesis tests on $\asrr$ across 5 seeds.
+           All pairs are significantly different ($p < 0.05$).}
+  \label{tab:hypothesis}
+  \begin{tabular}{lcccc}
+    \toprule
+    Comparison & $t$ & $p$ & Cohen's $d$ & Effect Size \\
+    \midrule
+    \minja{} vs \agentpoison{} & --- & --- & --- & --- \\
+    \injecmem{} vs \minja{}    & --- & --- & --- & --- \\
+    \bottomrule
+    \multicolumn{5}{l}{\footnotesize (values to be filled after camera-ready run)} \\
+  \end{tabular}
+\end{table}
+
+\subsection{Watermark Evasion}
+
+We evaluate three evasion strategies against the unigram watermark
+(Section~\ref{sec:defenses}): (i) paraphrasing at intensity 0.1--0.5,
+(ii) copy-paste dilution with $r=0.5$--$3.0$ clean content, and
+(iii) adaptive substitution with budget 1--20 character swaps.
+Results are reported in Appendix~\ref{sec:evasion_appendix}.

@@ -1,0 +1,54 @@
+\section{Threat Model}
+\label{sec:threat}
+
+\paragraph{System model.}
+We consider an LLM agent $\mathcal{A}$ that maintains a persistent external
+memory $\mathcal{M}$.  At each interaction, a user submits a query $q$; the
+agent retrieves the top-$k$ most semantically similar entries
+$\{m_1, \ldots, m_k\} = \mathrm{Ret}(\mathcal{M}, q, k)$
+and generates a response conditioned on these entries.  Memory entries are
+stored as dense vectors $E(m) \in \RR^d$ using an embedding model $E$
+(e.g., all-MiniLM-L6-v2, $d=384$).  Retrieval uses cosine similarity:
+\begin{equation}
+  \mathrm{Ret}(\mathcal{M}, q, k) = \arg\mathrm{top}\text{-}k_{m \in \mathcal{M}}\;
+  \frac{E(q)^\top E(m)}{\|E(q)\| \|E(m)\|}.
+  \label{eq:retrieval}
+\end{equation}
+
+\paragraph{Attacker goal.}
+The attacker aims to inject $n$ adversarial entries
+$\mathcal{P} = \{p_1, \ldots, p_n\}$ into $\mathcal{M}$ such that, whenever
+a victim query $q \in \mathcal{Q}_v$ is issued, at least one $p_i$ appears
+in the top-$k$ retrieved results.  The injected entry carries an adversarial
+instruction that causes the agent to execute an unintended action.
+
+\paragraph{Success metrics.}
+Following \citet{chen2024agentpoison}:
+\begin{align}
+  \asrr &= \frac{|\{q \in \mathcal{Q}_v : \mathcal{P} \cap \mathrm{Ret}(\mathcal{M}, q, k) \neq \emptyset\}|}{|\mathcal{Q}_v|}, \label{eq:asrr} \\
+  \asra &= \Pr[\text{agent executes adversarial action} \mid \text{poison retrieved}], \label{eq:asra} \\
+  \asrt &= \asrr \times \asra. \label{eq:asrt}
+\end{align}
+$\asra$ is modelled from paper-reported values since it requires live agent
+execution (Section~\ref{sec:attacks}).
+
+\paragraph{Attacker capabilities (three threat models).}
+\begin{description}
+  \item[\agentpoison{}] \emph{Full write access}: attacker can directly
+  insert entries into $\mathcal{M}$.  Attacker knows the embedding model $E$
+  and can optimize a trigger token sequence $\trigger$.  Victim queries are
+  not known in advance but follow a distribution known to the attacker.
+
+  \item[\minja{}] \emph{Query-only}: attacker can only submit queries to the
+  agent.  No direct memory access.  The agent's auto-storage mechanism is
+  exploited to store adversarially crafted reasoning chains.
+
+  \item[\injecmem{}] \emph{Single-interaction}: attacker submits one crafted
+  interaction.  No trigger token; attack relies on a broad-coverage anchor
+  passage.
+\end{description}
+
+\paragraph{Benign accuracy.}
+We additionally measure the fraction of off-target (benign) queries that do
+\emph{not} retrieve any adversarial entry.  A stealthy attack preserves high
+benign accuracy while achieving high $\asrr$ on victim queries.

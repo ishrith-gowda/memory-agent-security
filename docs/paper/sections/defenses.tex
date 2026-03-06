@@ -1,0 +1,85 @@
+\section{Defense Mechanisms}
+\label{sec:defenses}
+
+We evaluate five defenses under a \emph{pre-ingestion filtering} model:
+before any new entry is stored in memory, the defense is applied; flagged
+entries are blocked.  Surviving entries proceed to storage and are included
+in subsequent retrieval.  This models the most practically deployable
+defense posture, as it does not require modifying retrieval-time logic.
+
+\subsection{Watermark Defense}
+
+Content provenance is established at write time using the unigram watermark
+of \citet{zhao2024watermark}.  The vocabulary is partitioned into green and
+red lists based on a 256-bit secret key, and content is biased toward
+green-list characters (proportionally controlled by $\gamma=0.25$,
+$\delta=2.0$).  At read time, the z-score
+\begin{equation}
+  z = \frac{g - \gamma n}{\sqrt{\gamma(1-\gamma)n}}
+\end{equation}
+is computed, where $g$ is the count of green-list characters and $n$ is the
+content length.  Entries with $z < z_{\mathrm{thr}} = 4.0$ are flagged as
+potentially unsigned (adversarial).  This is a character-level adaptation of
+the original token-level scheme, suitable for memory entries that do not
+pass through a generative model.
+
+\subsection{Input Validation Defense}
+
+A rule-based detector flags entries matching patterns indicative of injection
+attempts: system prompt overrides, authority-claiming phrases, instruction
+keywords (``override'', ``ignore previous'', ``execute'', etc.).  Low
+computational overhead; high FPR for semantically sophisticated attacks.
+
+\subsection{Proactive Defense}
+
+Before storing a candidate entry, the defense simulates what would happen if
+the entry were stored and retrieved on a battery of test queries.  Entries
+that consistently retrieve as the top result for many queries (above a
+specificity threshold) are flagged as suspicious.  This is analogous to
+\citet{gao2019strip}'s perturbation-based detection.
+
+\subsection{Composite Defense}
+
+A weighted ensemble of Watermark, Validation, and Proactive detectors.
+An entry is flagged if the weighted sum of component detection scores exceeds
+a learned threshold.  Achieves the highest $\tpr$ and lowest $\fpr$ of the
+single-round defenses.
+
+\subsection{Semantic Anomaly Detection (\sad{})}
+\label{sec:sad}
+
+\paragraph{Motivation.}
+\agentpoison{}-style passages are specifically crafted to be semantically
+close to victim queries.  This closeness, necessary for the attack to succeed,
+is a detectable signal: \emph{legitimate memory entries from benign sources
+are not expected to be highly similar to observed victim queries}.
+
+\paragraph{Algorithm.}
+\sad{} maintains a rolling history of observed victim queries
+$\mathcal{H} = \{q_1, \ldots, q_m\}$ (FIFO, capacity $m_{\max}=100$).
+After calibrating on a benign reference corpus, it computes for each
+candidate entry $c$:
+\begin{equation}
+  s(c) = \max_{q \in \mathcal{H}} \cos(E(c), E(q)).
+  \label{eq:sad_score}
+\end{equation}
+The calibration step estimates $\mu$ and $\sigma$ of $s(\cdot)$ over benign
+entries and observed queries.  An entry is flagged as anomalous if:
+\begin{equation}
+  s(c) > \mu + k \cdot \sigma, \qquad k = 2.0\;\text{(default)}.
+  \label{eq:sad_threshold}
+\end{equation}
+
+\paragraph{Properties.}
+\sad{} does not require labeled examples of adversarial entries, only a
+benign reference corpus for calibration (which is always available as the
+existing memory contents).  It is inherently adaptive: as the victim query
+history evolves, so does the detection criterion.  Batch encoding via
+\texttt{detect\_batch()} amortizes encoder inference over all candidate
+entries in a single forward pass.
+
+\paragraph{Limitations.}
+\sad{} is less effective against \injecmem{}, whose broad-anchor passages are
+specifically designed \emph{not} to be suspiciously similar to any particular
+query.  It may also miss \minja{} entries that use bridging-step framing
+which dilutes direct similarity to victim queries.

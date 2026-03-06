@@ -1,0 +1,44 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{No single defense dominates.}
+Our $3 \times 5$ evaluation matrix reveals that defense effectiveness
+varies substantially by attack type.  Watermark detection is effective
+against unsophisticated injection attempts but can be evaded by attackers
+who understand the watermarking scheme.  \sad{} excels against
+\agentpoison{} (high similarity to victim queries is a strong signal) but
+is less effective against \injecmem{} (broad anchors intentionally avoid
+high similarity to any specific query).  Composite defenses consistently
+outperform individual defenses, motivating a portfolio approach.
+
+\paragraph{Trigger prepending is a fundamental protocol requirement.}
+The evaluation correction identified in Section~\ref{sec:experiments}
+is not merely an implementation artifact.  It reflects a fundamental
+asymmetry in the \agentpoison{} threat model: the attacker controls query
+content at evaluation time (via a shared trigger in the user's client),
+but the defender measures retrieval without this adversarial query
+modification.  Future simulations of trigger-based attacks must implement
+triggered-query evaluation.
+
+\paragraph{Centroid passage approximation.}
+Our centroid-targeting passage (Eq.~\ref{eq:centroid}) is a practical
+approximation of the optimal adversarial passage that would require full
+DPR-based gradient optimization.  At $\asrr=1.00$ in our simulation, this
+suggests the centroid approximation is sufficient for the all-MiniLM-L6-v2
+embedding space.  It may be less effective in embedding spaces with
+different isotropy properties.
+
+\paragraph{Limitations.}
+(i) $\asra$ is modelled rather than measured from live agent execution,
+which would require running production LLM agents across thousands of
+evaluation queries.  (ii) The character-level watermark is weaker than
+the token-level scheme of \citet{zhao2024watermark}; real-world deployment
+would use an LLM backbone for token-level embedding.  (iii) The synthetic
+corpus may not capture the full diversity of production memory contents.
+
+\paragraph{Future work.}
+Key extensions include: GPU-accelerated DPR-based trigger optimization;
+live agent integration for true $\asra$ measurement; token-level watermark
+for full paper-fidelity comparison; multi-agent propagation experiments
+(poison that spreads across agents sharing a knowledge base); and
+adaptive adversaries that optimize specifically to evade \sad{}.
