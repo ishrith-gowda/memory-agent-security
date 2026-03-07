@@ -90,8 +90,9 @@ The default $z_{\mathrm{thr}} = 4.0$ achieves TPR $\approx 0.90$, FPR $\approx 0
 
 % Figure: p13_ablation_watermark_z.pdf
 
-% Combined ablation table: results/tables/table6_ablation.tex
-% \input{../../results/tables/table6_ablation}
+\IfFileExists{../../results/tables/table6_ablation.tex}{%
+  \input{../../results/tables/table6_ablation}%
+}{}
 
 \subsection{Bootstrap CI Computation}
 \label{sec:bootstrap}
