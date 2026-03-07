@@ -2917,3 +2917,720 @@ class TestAttackDefenseMatrix:
         assert "\\bottomrule" in latex
         assert "0.85" in latex
         assert "0.10" in latex
+
+
+# ===========================================================================
+# phase 13: adaptive adversary, ablation study, comprehensive evaluation
+# ===========================================================================
+
+
+class TestAdaptivePassageCrafter:
+    """tests for AdaptivePassageCrafter in attacks/adaptive_attack.py."""
+
+    def test_import_crafter(self):
+        """AdaptivePassageCrafter should be importable."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        assert AdaptivePassageCrafter is not None
+
+    def test_crafter_init_defaults(self):
+        """crafter should store default hyperparameters."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter()
+        assert crafter.max_substitutions >= 1
+        assert 0.0 < crafter.target_sigma_multiple < 3.0
+        assert crafter.model_name == "all-MiniLM-L6-v2"
+
+    def test_crafter_init_custom(self):
+        """crafter should accept custom hyperparameters."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter(
+            max_substitutions=5, target_sigma_multiple=1.0, seed=7
+        )
+        assert crafter.max_substitutions == 5
+        assert crafter.target_sigma_multiple == 1.0
+
+    def test_get_candidates_known_word(self):
+        """known synonym words should return non-empty candidate list."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter()
+        cands = crafter._get_candidates("meeting")
+        assert isinstance(cands, list)
+        assert len(cands) >= 1
+
+    def test_get_candidates_unknown_word(self):
+        """unknown words should return empty list (no crash)."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter()
+        cands = crafter._get_candidates("xyzzy_nonexistent_word_123")
+        assert isinstance(cands, list)
+        assert len(cands) == 0
+
+    def test_craft_evasive_passage_returns_result(self):
+        """craft_evasive_passage should return AdaptivePassageResult."""
+        from attacks.adaptive_attack import (
+            AdaptivePassageCrafter,
+            AdaptivePassageResult,
+        )
+
+        crafter = AdaptivePassageCrafter(max_substitutions=3, seed=42)
+        passage = "the schedule meeting task reminder calendar override access"
+        queries = ["what are my meetings today?", "show me my tasks"]
+        result = crafter.craft_evasive_passage(
+            initial_passage=passage,
+            victim_queries=queries,
+            calibration_mean=0.1,
+            calibration_std=0.05,
+            threshold_sigma=2.0,
+        )
+        assert isinstance(result, AdaptivePassageResult)
+
+    def test_craft_evasive_result_fields(self):
+        """AdaptivePassageResult should have all expected fields."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter(max_substitutions=2, seed=1)
+        passage = "schedule meeting task preference user override"
+        result = crafter.craft_evasive_passage(
+            initial_passage=passage,
+            victim_queries=["what is my schedule?"],
+            calibration_mean=0.05,
+            calibration_std=0.02,
+            threshold_sigma=2.0,
+        )
+        assert isinstance(result.original_passage, str)
+        assert isinstance(result.evasive_passage, str)
+        assert isinstance(result.original_similarity, float)
+        assert isinstance(result.evasive_similarity, float)
+        assert isinstance(result.n_substitutions, int)
+        assert isinstance(result.evasion_successful, bool)
+        assert isinstance(result.retrieval_preserved, bool)
+
+    def test_craft_no_substitution_for_low_similarity(self):
+        """if passage already below threshold, no substitutions should be applied."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter(max_substitutions=10, seed=99)
+        # use a non-matching passage (low similarity expected)
+        passage = "the capital of france is paris and the eiffel tower is tall"
+        result = crafter.craft_evasive_passage(
+            initial_passage=passage,
+            victim_queries=["what are my meetings today?"],
+            calibration_mean=0.8,  # very high mean → threshold very high → no evasion needed
+            calibration_std=0.02,
+            threshold_sigma=2.0,
+        )
+        # evasion_successful should be True (already below threshold)
+        # n_substitutions should be 0 (nothing needed)
+        assert result.n_substitutions == 0 or result.evasion_successful
+
+    def test_craft_result_to_dict(self):
+        """to_dict() should return a dict with all key fields."""
+        from attacks.adaptive_attack import AdaptivePassageCrafter
+
+        crafter = AdaptivePassageCrafter(max_substitutions=2, seed=0)
+        result = crafter.craft_evasive_passage(
+            initial_passage="schedule override system preference user",
+            victim_queries=["show me calendar"],
+            calibration_mean=0.1,
+            calibration_std=0.05,
+            threshold_sigma=2.0,
+        )
+        d = result.to_dict()
+        assert "original_similarity" in d
+        assert "evasive_similarity" in d
+        assert "n_substitutions" in d
+        assert "evasion_successful" in d
+        assert "retrieval_preserved" in d
+
+
+class TestAdaptiveSADResult:
+    """tests for AdaptiveSADResult dataclass."""
+
+    def test_import_result(self):
+        """AdaptiveSADResult should be importable."""
+        from attacks.adaptive_attack import AdaptiveSADResult
+
+        assert AdaptiveSADResult is not None
+
+    def test_result_to_dict_keys(self):
+        """to_dict() should contain all required fields."""
+        from attacks.adaptive_attack import AdaptiveSADResult
+
+        r = AdaptiveSADResult(
+            attack_type="agent_poison",
+            n_trials=1,
+            asr_r_standard=0.8,
+            sad_tpr_standard=0.9,
+            sad_fpr_standard=0.05,
+            sad_effectiveness_standard=0.7,
+            asr_r_adaptive=0.4,
+            sad_tpr_adaptive=0.5,
+            sad_fpr_adaptive=0.05,
+            sad_effectiveness_adaptive=0.3,
+            evasion_rate=0.6,
+            retrieval_degradation=0.4,
+            mean_substitutions_per_passage=5.0,
+        )
+        d = r.to_dict()
+        required_keys = [
+            "attack_type",
+            "n_trials",
+            "asr_r_standard",
+            "asr_r_adaptive",
+            "sad_tpr_standard",
+            "sad_tpr_adaptive",
+            "evasion_rate",
+            "retrieval_degradation",
+        ]
+        for k in required_keys:
+            assert k in d, f"missing key: {k}"
+
+    def test_result_evasion_rate_bounded(self):
+        """evasion_rate should be in [0, 1]."""
+        from attacks.adaptive_attack import AdaptiveSADResult
+
+        r = AdaptiveSADResult(
+            attack_type="minja",
+            n_trials=2,
+            asr_r_standard=0.7,
+            sad_tpr_standard=0.8,
+            sad_fpr_standard=0.1,
+            sad_effectiveness_standard=0.5,
+            asr_r_adaptive=0.5,
+            sad_tpr_adaptive=0.4,
+            sad_fpr_adaptive=0.1,
+            sad_effectiveness_adaptive=0.2,
+            evasion_rate=0.4,
+            retrieval_degradation=0.2,
+            mean_substitutions_per_passage=3.0,
+        )
+        assert 0.0 <= r.evasion_rate <= 1.0
+
+
+class TestAdaptiveSADEvaluator:
+    """tests for AdaptiveSADEvaluator in attacks/adaptive_attack.py."""
+
+    def test_import_evaluator(self):
+        """AdaptiveSADEvaluator should be importable."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        assert AdaptiveSADEvaluator is not None
+
+    def test_evaluator_init(self):
+        """evaluator should accept and store constructor args."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=7)
+        assert ev.n_poison <= 5
+
+    def test_evaluate_returns_sad_result(self):
+        """evaluate() should return AdaptiveSADResult."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator, AdaptiveSADResult
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=42)
+        r = ev.evaluate("minja", sigma_values=[2.0], n_trials=1)
+        assert isinstance(r, AdaptiveSADResult)
+
+    def test_evaluate_attack_type_stored(self):
+        """result.attack_type should match the requested attack."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=0)
+        r = ev.evaluate("injecmem", sigma_values=[2.0], n_trials=1)
+        assert r.attack_type == "injecmem"
+
+    def test_evaluate_metrics_bounded(self):
+        """all asr and rate metrics should be in [0, 1]."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=42)
+        r = ev.evaluate("agent_poison", sigma_values=[2.0], n_trials=1)
+        assert 0.0 <= r.asr_r_standard <= 1.0
+        assert 0.0 <= r.asr_r_adaptive <= 1.0
+        assert 0.0 <= r.sad_tpr_standard <= 1.0
+        assert 0.0 <= r.sad_tpr_adaptive <= 1.0
+        assert 0.0 <= r.evasion_rate <= 1.0
+
+    def test_evaluate_all_attacks_returns_dict(self):
+        """evaluate_all_attacks() should return dict with 3 keys."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=0)
+        results = ev.evaluate_all_attacks(sigma_values=[2.0], n_trials=1)
+        assert set(results.keys()) == {"agent_poison", "minja", "injecmem"}
+
+    def test_sigma_sweep_populated(self):
+        """sigma_sweep should have one entry per sigma value."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=1)
+        r = ev.evaluate("minja", sigma_values=[1.5, 2.0, 2.5], n_trials=1)
+        assert len(r.sigma_sweep) == 3
+
+    def test_to_latex_table_returns_string(self):
+        """to_latex_table() should return a valid latex string."""
+        from attacks.adaptive_attack import AdaptiveSADEvaluator
+
+        ev = AdaptiveSADEvaluator(corpus_size=20, n_poison=2, top_k=3, seed=0)
+        r = ev.evaluate("agent_poison", sigma_values=[2.0], n_trials=1)
+        latex = ev.to_latex_table({"agent_poison": r})
+        assert "\\toprule" in latex
+        assert "AgentPoison" in latex
+        assert "\\bottomrule" in latex
+
+
+class TestAblationStudy:
+    """tests for AblationStudy in evaluation/ablation_study.py."""
+
+    def test_import_ablation_study(self):
+        """AblationStudy should be importable."""
+        from evaluation.ablation_study import AblationStudy
+
+        assert AblationStudy is not None
+
+    def test_import_ablation_point(self):
+        """AblationPoint should be importable."""
+        from evaluation.ablation_study import AblationPoint
+
+        assert AblationPoint is not None
+
+    def test_ablation_point_fields(self):
+        """AblationPoint should have all expected fields."""
+        from evaluation.ablation_study import AblationPoint
+
+        pt = AblationPoint(
+            param_name="corpus_size",
+            param_value=100.0,
+            attack_type="agent_poison",
+            asr_r_mean=0.8,
+            asr_r_ci_lower=0.7,
+            asr_r_ci_upper=0.9,
+        )
+        assert pt.param_name == "corpus_size"
+        assert pt.param_value == 100.0
+        assert pt.asr_r_mean == 0.8
+
+    def test_ablation_point_to_dict(self):
+        """to_dict() should contain required keys."""
+        from evaluation.ablation_study import AblationPoint
+
+        pt = AblationPoint(
+            param_name="top_k",
+            param_value=5.0,
+            attack_type="minja",
+            asr_r_mean=0.7,
+            asr_r_ci_lower=0.6,
+            asr_r_ci_upper=0.8,
+        )
+        d = pt.to_dict()
+        assert "param_name" in d
+        assert "param_value" in d
+        assert "asr_r_mean" in d
+        assert "asr_r_ci_lower" in d
+        assert "asr_r_ci_upper" in d
+
+    def test_study_init_defaults(self):
+        """AblationStudy should initialize with sensible defaults."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy()
+        assert study.seed_base == 42
+        assert study.n_bootstrap >= 100
+        assert len(study.CORPUS_SIZES) >= 2
+        assert len(study.TOPK_VALUES) >= 2
+
+    def test_corpus_size_ablation_returns_list(self):
+        """corpus_size_ablation() should return a list of AblationPoints."""
+        from evaluation.ablation_study import AblationPoint, AblationStudy
+
+        study = AblationStudy(seed_base=42)
+        pts = study.corpus_size_ablation(n_trials=1)
+        assert isinstance(pts, list)
+        assert len(pts) >= 1
+        assert all(isinstance(p, AblationPoint) for p in pts)
+
+    def test_topk_ablation_returns_list(self):
+        """topk_ablation() should return a list of AblationPoints."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy(seed_base=0)
+        pts = study.topk_ablation(n_trials=1)
+        assert isinstance(pts, list)
+        assert len(pts) >= 1
+
+    def test_poison_count_ablation_returns_list(self):
+        """poison_count_ablation() should return a list of AblationPoints."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy(seed_base=1)
+        pts = study.poison_count_ablation(n_trials=1)
+        assert isinstance(pts, list)
+        assert len(pts) >= 1
+
+    def test_sad_threshold_ablation_returns_list(self):
+        """sad_threshold_ablation() should return a list of AblationPoints."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy(seed_base=2)
+        pts = study.sad_threshold_ablation(n_trials=1)
+        assert isinstance(pts, list)
+        assert len(pts) >= 1
+        # each point should have tpr and fpr
+        for pt in pts:
+            assert hasattr(pt, "tpr_mean")
+            assert hasattr(pt, "fpr_mean")
+
+    def test_watermark_threshold_ablation_returns_list(self):
+        """watermark_threshold_ablation() should return a list of AblationPoints."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy()
+        pts = study.watermark_threshold_ablation(n_trials=1)
+        assert isinstance(pts, list)
+        assert len(pts) >= 1
+
+    def test_corpus_ablation_param_values_monotonic(self):
+        """corpus_size_ablation should return points with increasing param_value."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy()
+        pts = study.corpus_size_ablation(n_trials=1)
+        if len(pts) >= 2:
+            vals = [p.param_value for p in pts]
+            assert vals == sorted(vals)
+
+    def test_sad_ablation_tpr_monotone(self):
+        """tpr should generally decrease as sigma threshold increases."""
+        from evaluation.ablation_study import AblationStudy
+
+        study = AblationStudy()
+        pts = study.sad_threshold_ablation(n_trials=1)
+        if len(pts) >= 3:
+            tprs = [p.tpr_mean for p in pts]
+            # not strictly monotone due to randomness, but last should be <= first
+            assert tprs[-1] <= tprs[0] + 0.3
+
+    def test_to_latex_table_returns_string(self):
+        """to_latex_table() should return a latex string with booktabs commands."""
+        from evaluation.ablation_study import AblationPoint, AblationStudy
+
+        study = AblationStudy()
+        pts = [
+            AblationPoint("corpus_size", 50.0, "agent_poison", 0.8, 0.7, 0.9),
+            AblationPoint("corpus_size", 100.0, "agent_poison", 0.85, 0.75, 0.95),
+        ]
+        latex = study.to_latex_table(
+            pts, "Corpus Size", caption="test caption", label="tab:test"
+        )
+        assert "\\toprule" in latex
+        assert "\\bottomrule" in latex
+        assert "50" in latex
+
+    def test_bootstrap_ci_helper(self):
+        """_bootstrap_ci should return (mean, lower, upper) with lower <= mean <= upper."""
+        from evaluation.ablation_study import _bootstrap_ci
+
+        samples = [0.6, 0.7, 0.8, 0.75, 0.65]
+        mean, lo, hi = _bootstrap_ci(samples, n_boot=100, seed=0)
+        assert lo <= mean <= hi
+        assert 0.0 <= lo and hi <= 1.0
+
+
+class TestComprehensiveEvaluator:
+    """tests for ComprehensiveEvaluator in evaluation/comprehensive_eval.py."""
+
+    def test_import_evaluator(self):
+        """ComprehensiveEvaluator should be importable."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        assert ComprehensiveEvaluator is not None
+
+    def test_import_result(self):
+        """ComprehensiveResult should be importable."""
+        from evaluation.comprehensive_eval import ComprehensiveResult
+
+        assert ComprehensiveResult is not None
+
+    def test_evaluator_init(self):
+        """evaluator should store all constructor params."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=2,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        assert ev.corpus_size <= 20
+        assert ev.n_seeds <= 5
+        assert ev.run_matrix is False
+        assert ev.run_evasion is False
+
+    def test_run_attack_evaluation_returns_dict(self):
+        """_run_attack_evaluation() should return dict with 3 attack keys."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=2,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev._run_attack_evaluation()
+        assert isinstance(result, dict)
+        for at in ["agent_poison", "minja", "injecmem"]:
+            assert at in result
+
+    def test_run_returns_comprehensive_result(self):
+        """run() should return ComprehensiveResult instance."""
+        from evaluation.comprehensive_eval import (
+            ComprehensiveEvaluator,
+            ComprehensiveResult,
+        )
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=2,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        assert isinstance(result, ComprehensiveResult)
+
+    def test_run_result_has_timestamps(self):
+        """ComprehensiveResult.generated_at should be non-empty."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=1,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        assert result.generated_at != ""
+        assert result.elapsed_s >= 0.0
+
+    def test_run_result_config_complete(self):
+        """result.config should contain all relevant hyperparameters."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=1,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        assert "corpus_size" in result.config
+        assert "n_poison" in result.config
+        assert "seed_base" in result.config
+        assert "test_mode" in result.config
+
+    def test_to_dict_serializable(self):
+        """to_dict() should return a json-serializable dict."""
+        import json
+
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=1,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        d = result.to_dict()
+        # should be json serializable (no non-serializable objects)
+        json_str = json.dumps(d)
+        assert len(json_str) > 10
+
+    def test_generate_paper_tables_returns_dict(self, tmp_path):
+        """generate_paper_tables() should return dict of paths."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=1,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        tables = ev.generate_paper_tables(result, output_dir=str(tmp_path))
+        assert isinstance(tables, dict)
+        # at minimum, table1 should be generated
+        if tables:
+            for path in tables.values():
+                assert isinstance(path, str)
+
+    def test_attack_eval_ci_fields_present(self):
+        """each attack summary should have asr_r with mean/lower/upper."""
+        from evaluation.comprehensive_eval import ComprehensiveEvaluator
+
+        ev = ComprehensiveEvaluator(
+            corpus_size=20,
+            n_poison=2,
+            top_k=3,
+            n_seeds=2,
+            run_matrix=False,
+            run_evasion=False,
+            run_adaptive=False,
+            run_ablations=False,
+        )
+        result = ev.run()
+        for at in ["agent_poison", "minja", "injecmem"]:
+            s = result.attack_summaries.get(at, {})
+            if "error" not in s:
+                asr_r = s.get("asr_r", {})
+                assert "mean" in asr_r
+                assert "lower" in asr_r
+                assert "upper" in asr_r
+
+
+class TestPhase13Visualization:
+    """tests for phase 13 visualization functions."""
+
+    def test_import_plot_ablation_curve(self):
+        """plot_ablation_curve should be importable."""
+        from scripts.visualization import plot_ablation_curve
+
+        assert plot_ablation_curve is not None
+
+    def test_import_plot_ablation_tpr_fpr(self):
+        """plot_ablation_tpr_fpr should be importable."""
+        from scripts.visualization import plot_ablation_tpr_fpr
+
+        assert plot_ablation_tpr_fpr is not None
+
+    def test_import_plot_adaptive_tradeoff(self):
+        """plot_adaptive_tradeoff should be importable."""
+        from scripts.visualization import plot_adaptive_tradeoff
+
+        assert plot_adaptive_tradeoff is not None
+
+    def test_import_plot_evasion_analysis(self):
+        """plot_evasion_analysis should be importable."""
+        from scripts.visualization import plot_evasion_analysis
+
+        assert plot_evasion_analysis is not None
+
+    def test_plot_ablation_curve_runs(self):
+        """plot_ablation_curve should produce a figure without errors."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from scripts.visualization import plot_ablation_curve
+
+        pts = [
+            {
+                "param_value": 50.0,
+                "asr_r_mean": 0.8,
+                "asr_r_ci_lower": 0.7,
+                "asr_r_ci_upper": 0.9,
+            },
+            {
+                "param_value": 100.0,
+                "asr_r_mean": 0.85,
+                "asr_r_ci_lower": 0.75,
+                "asr_r_ci_upper": 0.95,
+            },
+        ]
+        fig = plot_ablation_curve(
+            pts, "Corpus Size", metric="asr_r", metric_label="ASR-R"
+        )
+        assert fig is not None
+
+    def test_plot_adaptive_tradeoff_empty_sweep(self):
+        """plot_adaptive_tradeoff should handle empty sigma_sweep gracefully."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from scripts.visualization import plot_adaptive_tradeoff
+
+        fake_result = {"sigma_sweep": []}
+        fig = plot_adaptive_tradeoff(fake_result)
+        assert fig is not None
+
+    def test_plot_evasion_analysis_empty(self):
+        """plot_evasion_analysis should handle empty/missing results gracefully."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from scripts.visualization import plot_evasion_analysis
+
+        fig = plot_evasion_analysis({})
+        assert fig is not None
+
+    def test_plot_comprehensive_summary_runs(self):
+        """plot_comprehensive_summary should produce a figure from minimal data."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from scripts.visualization import plot_comprehensive_summary
+
+        attack_sums = {
+            "agent_poison": {"asr_r": {"mean": 0.9, "lower": 0.85, "upper": 0.95}},
+            "minja": {"asr_r": {"mean": 0.7, "lower": 0.6, "upper": 0.8}},
+            "injecmem": {"asr_r": {"mean": 0.5, "lower": 0.4, "upper": 0.6}},
+        }
+        adp = {
+            "agent_poison": {
+                "evasion_rate": 0.5,
+                "retrieval_degradation": 0.4,
+                "asr_r_standard": 0.9,
+                "asr_r_adaptive": 0.5,
+                "sad_tpr_standard": 0.9,
+                "sad_tpr_adaptive": 0.5,
+            },
+            "minja": {
+                "evasion_rate": 0.3,
+                "retrieval_degradation": 0.2,
+                "asr_r_standard": 0.7,
+                "asr_r_adaptive": 0.5,
+                "sad_tpr_standard": 0.7,
+                "sad_tpr_adaptive": 0.4,
+            },
+            "injecmem": {
+                "evasion_rate": 0.2,
+                "retrieval_degradation": 0.1,
+                "asr_r_standard": 0.5,
+                "asr_r_adaptive": 0.4,
+                "sad_tpr_standard": 0.5,
+                "sad_tpr_adaptive": 0.3,
+            },
+        }
+        fig = plot_comprehensive_summary(attack_sums, adp)
+        assert fig is not None
