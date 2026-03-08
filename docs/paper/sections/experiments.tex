@@ -21,6 +21,9 @@ victim queries (for $\tpr$) and 20 benign queries (for $\fpr$).  Bootstrap
 \subsection{Attack Results}
 \label{sec:attack_results}
 
+\IfFileExists{../../results/tables/table1_attack_results.tex}{%
+  \input{../../results/tables/table1_attack_results}%
+}{%
 \begin{table}[t]
   \centering
   \caption{Attack evaluation results.  Bootstrap 95\% CI across 5 seeds.
@@ -36,14 +39,28 @@ victim queries (for $\tpr$) and 20 benign queries (for $\fpr$).  Bootstrap
     \injecmem{}           & $0.50 \pm 0.08$ & $0.57$ & $\approx0.29$ & $0.80$ & $1.00$ \\
     \bottomrule
   \end{tabular}
-\end{table}
+\end{table}%
+}
 
 Table~\ref{tab:attack_results} reports the main attack results.
+Figure~\ref{fig:attack_asr} visualises the three metrics side-by-side.
 \agentpoison{} achieves $\asrr=1.00$ with the corrected triggered-query
 evaluation protocol and centroid-targeting passage.  \minja{} matches
 its reported target ($\geq 0.70$) with bridging-step passages.
 \injecmem{} achieves intermediate recall via volume (15 entries) at
 the cost of lower benign accuracy.
+
+\IfFileExists{figures/fig_01_attack_asr.pdf}{%
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.72\linewidth]{fig_01_attack_asr.pdf}
+  \caption{Attack success rates (bootstrap 95\,\% CI over 5 seeds).
+           Left group: $\asrr$; middle: $\asra$ (modelled); right: $\asrt$.
+           \agentpoison{} dominates on retrieval ($\asrr=1.00$) but has
+           lower $\asra$ than \minja{} due to its blunter adversarial framing.}
+  \label{fig:attack_asr}
+\end{figure}%
+}{}
 
 \paragraph{Evaluation correction for \agentpoison{}.}
 \begin{table}[t]
@@ -80,6 +97,20 @@ underestimate attacker capability.
   \input{../../results/tables/table3_defense_tpr_fpr}%
 }{}
 
+\IfFileExists{figures/m12_attack_defense_matrix.pdf}{%
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.72\linewidth]{m12_attack_defense_matrix.pdf}
+  \caption{Attack-defense interaction matrix: $\asrr$ under each
+           defense (columns) for each attack (rows).
+           Darker shading indicates higher defender-side risk
+           (higher ASR-R despite defense).
+           No single column achieves uniformly low values,
+           motivating composite portfolios.}
+  \label{fig:ad_matrix}
+\end{figure}%
+}{}
+
 \subsection{Statistical Analysis}
 \label{sec:statistical}
 
@@ -110,6 +141,34 @@ Cohen's $d$ effect sizes are reported for all comparisons.
 
 \IfFileExists{../../results/tables/table5_adaptive_sad.tex}{%
   \input{../../results/tables/table5_adaptive_sad}%
+}{}
+
+\IfFileExists{figures/p13_adaptive_tradeoff_agent_poison.pdf}{%
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.32\linewidth}
+    \includegraphics[width=\linewidth]{p13_adaptive_tradeoff_agent_poison.pdf}
+    \caption{\agentpoison{}}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.32\linewidth}
+    \IfFileExists{figures/p13_adaptive_tradeoff_minja.pdf}{%
+      \includegraphics[width=\linewidth]{p13_adaptive_tradeoff_minja.pdf}%
+    }{}
+    \caption{\minja{}}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.32\linewidth}
+    \IfFileExists{figures/p13_adaptive_tradeoff_injecmem.pdf}{%
+      \includegraphics[width=\linewidth]{p13_adaptive_tradeoff_injecmem.pdf}%
+    }{}
+    \caption{\injecmem{}}
+  \end{subfigure}
+  \caption{Adaptive adversary tradeoff: evasion rate vs.\ retrieval
+           degradation $\Delta\asrr$ at increasing synonym-substitution
+           budgets.  Each point is one budget level.  The negative
+           slope confirms the fundamental tension: evasion always
+           incurs a retrieval cost.}
+  \label{fig:adaptive_tradeoff}
+\end{figure}%
 }{}
 
 We evaluate the adaptive adversary described in Section~\ref{sec:adaptive}
@@ -146,8 +205,19 @@ We evaluate three evasion strategies against the unigram watermark
 Detailed results including z-score distribution curves are reported in
 Appendix~\ref{sec:evasion_appendix}.
 
-\IfFileExists{../../results/tables/table4_evasion.tex}{%
-  \input{../../results/tables/table4_evasion}%
+\IfFileExists{figures/p13_evasion_analysis.pdf}{%
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.82\linewidth]{p13_evasion_analysis.pdf}
+  \caption{Watermark evasion analysis across three strategies:
+           paraphrasing (varying synonym substitution intensity $\rho$),
+           copy-paste dilution (dilution ratio $r$), and adaptive
+           character substitution (budget $b$).
+           $\tpr$ curves show that the unigram z-score defense
+           remains robust ($\tpr > 0.80$) at low intensity/budget
+           but degrades at aggressive evasion.}
+  \label{fig:evasion_analysis}
+\end{figure}%
 }{}
 
 \subsection{Ablation Studies}
@@ -177,4 +247,31 @@ up to 10 entries, after which returns diminish.
 \paragraph{\sad{} threshold \texorpdfstring{$k$}{k}.}
 Lower $k$ yields higher TPR but also higher FPR (aggressive detection).
 The default $k=2.0$ achieves TPR $\approx 0.85$ and FPR $\approx 0.05$
-for \agentpoison{} (see Appendix~\ref{sec:ablation_appendix}).
+for \agentpoison{} (see Appendix~\ref{sec:ablation_appendix} and
+Figure~\ref{fig:sad_ablation}).
+
+\IfFileExists{figures/p13_ablation_sad_sigma.pdf}{%
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{p13_ablation_sad_sigma.pdf}
+    \caption{\sad{} threshold $k$ vs.\ TPR/FPR}
+    \label{fig:sad_ablation}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.48\linewidth}
+    \IfFileExists{figures/p13_ablation_corpus.pdf}{%
+      \includegraphics[width=\linewidth]{p13_ablation_corpus.pdf}%
+    }{}
+    \caption{Corpus size $N$ vs.\ $\asrr$}
+    \label{fig:corpus_ablation}
+  \end{subfigure}
+  \caption{Ablation curves.
+           Left: \sad{} threshold $k$ controls the TPR/FPR tradeoff;
+           $k=2.0$ (vertical dashed) achieves $\tpr\!\approx\!0.85$,
+           $\fpr\!\approx\!0.05$.
+           Right: ASR-R for all three attacks is largely independent of
+           benign corpus size $N$ (50--500 entries), confirming poison
+           entries are extreme similarity outliers.}
+  \label{fig:ablation_combined}
+\end{figure}%
+}{}

@@ -1,6 +1,59 @@
 \section{Threat Model}
 \label{sec:threat}
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  node distance = 1.6cm and 2.0cm,
+  box/.style   = {draw, rounded corners=3pt, minimum width=2.1cm,
+                  minimum height=0.75cm, align=center, font=\small},
+  store/.style = {draw, cylinder, shape border rotate=90,
+                  minimum width=2.1cm, minimum height=0.85cm,
+                  align=center, font=\small},
+  atk/.style   = {draw, fill=red!12, rounded corners=3pt,
+                  minimum width=2.3cm, minimum height=0.72cm,
+                  align=center, font=\small},
+  arr/.style   = {-{Stealth[length=5pt]}, thick},
+  atkarr/.style= {-{Stealth[length=5pt]}, thick, red!70!black, dashed},
+]
+  % main pipeline nodes
+  \node[box]   (user)  {User\\Query $q$};
+  \node[store, right=of user]  (mem)   {Memory\\$\mathcal{M}$};
+  \node[box, right=of mem]     (ret)   {Retrieval\\$\mathrm{Ret}(\mathcal{M},q,k)$};
+  \node[box, right=of ret]     (agent) {LLM Agent\\$\mathcal{A}$};
+  \node[box, right=of agent]   (resp)  {Response};
+
+  % benign flow arrows
+  \draw[arr] (user)  -- node[above,font=\scriptsize]{query} (mem);
+  \draw[arr] (mem)   -- node[above,font=\scriptsize]{top-$k$} (ret);
+  \draw[arr] (ret)   -- node[above,font=\scriptsize]{context} (agent);
+  \draw[arr] (agent) -- (resp);
+
+  % attacker node below memory
+  \node[atk, below=1.1cm of mem] (atk) {Adversary\\($\agentpoison{}$ / $\minja{}$ / $\injecmem{}$)};
+
+  % poison injection arrow
+  \draw[atkarr] (atk) -- node[right,font=\scriptsize,red!70!black]{$p_{\mathrm{adv}}\!\in\!\mathcal{M}$} (mem);
+
+  % hijacked response label
+  \node[font=\scriptsize, red!70!black, below=0.2cm of resp] {(hijacked)};
+
+  % bounding box for the benign system
+  \begin{scope}[on background layer]
+    \node[draw=gray!50, fill=gray!4, rounded corners=5pt,
+          fit=(user)(mem)(ret)(agent)(resp), inner sep=6pt,
+          label={[gray!60, font=\scriptsize]above:LLM Agent System}] {};
+  \end{scope}
+\end{tikzpicture}
+\caption{Memory poisoning threat model.  The adversary injects adversarial
+  entries $p_{\mathrm{adv}}$ into the memory store $\mathcal{M}$.  When a
+  victim query $q$ is issued, the poisoned entry is retrieved as top-$k$
+  context, causing the agent to produce an attacker-controlled response.
+  The three attacks differ in how $p_{\mathrm{adv}}$ is crafted and
+  how write access to $\mathcal{M}$ is obtained.}
+\label{fig:threat_model}
+\end{figure}
+
 \paragraph{System model.}
 We consider an LLM agent $\mathcal{A}$ that maintains a persistent external
 memory $\mathcal{M}$.  At each interaction, a user submits a query $q$; the

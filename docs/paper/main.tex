@@ -11,17 +11,20 @@
 \usepackage{amsmath, amssymb, amsthm}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{multirow}
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{natbib}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
 \usepackage{subcaption}
 \usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds, patterns}
+
+% --- figure path (all generated figures live in figures/) ---
+\graphicspath{{figures/}}
 
 % --- theorem environments ---
 \newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
 \newtheorem{proposition}{Proposition}
 \newtheorem{definition}{Definition}
 \newtheorem{remark}{Remark}
